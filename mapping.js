@@ -53,6 +53,24 @@ function coerceDate(val) {
 
 const DATE_FIELDS = new Set(['order_date', 'po_deadline', 'eta']);
 
+// Recognize a "new item" column (named New / Tag / New Item) without needing it
+// in the template. Truthy cells -> is_new true; explicit no/0/false -> false.
+function findNewColumn(headers) {
+  for (const cand of ['new', 'tag', 'new item', 'new launch']) {
+    let i = headers.findIndex((h) => h === cand);
+    if (i < 0) i = headers.findIndex((h) => h.startsWith(cand + ' '));
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+function parseNewFlag(val) {
+  const s = String(val ?? '').trim().toLowerCase();
+  if (s === '') return undefined;
+  if (['new', 'yes', 'y', '1', 'true', 'x', '✓', 'newlaunch', 'launch'].includes(s)) return true;
+  if (['no', 'n', '0', 'false', '-'].includes(s)) return false;
+  return true; // any other non-empty note in a New column means "new"
+}
+
 // Find the column index whose normalized header matches a source header,
 // trying exact, then prefix, then contains (handles multi-line headers like
 // "Delivery Status\n( China warehouse )").
@@ -100,6 +118,7 @@ export function mapWorkbook(workbook, mapping, XLSX) {
       }
     }
     const headers = (grid[hr] || []).map((h) => normalizeHeader(h));
+    const newCol = findNewColumn(headers);
 
     // canonical field -> column index (first match wins)
     const fieldCol = {};
@@ -145,6 +164,12 @@ export function mapWorkbook(workbook, mapping, XLSX) {
       // apply template defaults (e.g. Tangem -> available) without overriding
       for (const [k, v] of Object.entries(defaults)) {
         if (obj[k] === undefined || obj[k] === null) obj[k] = v;
+      }
+
+      // "New" item flag from a New/Tag column, if present
+      if (newCol >= 0) {
+        const nf = parseNewFlag(row[newCol]);
+        if (nf !== undefined) obj.is_new = nf;
       }
 
       rows.push(obj);
