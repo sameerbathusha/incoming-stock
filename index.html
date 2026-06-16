@@ -6,103 +6,122 @@
 <title>Space Global — Incoming Stock</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --ink:#16233a; --ink-2:#1f3150; --paper:#f5f3ec; --card:#ffffff;
-    --line:#e0dbcf; --line-2:#cfc9bb; --text:#1b2330; --muted:#6c7686;
-    --amber:#b9751a; --amber-bg:#fbf0dd; --red:#b23029; --red-bg:#fbe6e3;
-    --green:#2f7d5b; --green-bg:#e3f1ea; --blue:#2b5f8e; --blue-bg:#e4eef7;
-    --radius:10px; --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-    --sans:"Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    --ink:#16233a; --ink-2:#22344f; --text:#1b2330; --muted:#65718a;
+    --amber:#b9751a; --amber-bg:rgba(216,150,40,.16); --red:#b23029; --red-bg:rgba(196,72,62,.15);
+    --green:#2f7d5b; --green-bg:rgba(54,150,108,.16); --blue:#2b5f8e; --blue-bg:rgba(58,120,170,.15);
+    --glass:rgba(255,255,255,.62); --glass-2:rgba(255,255,255,.78); --stroke:rgba(255,255,255,.65);
+    --hair:rgba(40,60,90,.12); --shadow:0 10px 34px rgba(20,35,60,.10);
+    --radius:14px; --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
-  body{font-family:var(--sans);color:var(--text);background:var(--paper);font-size:14px;line-height:1.45}
+  body{font-family:var(--sans);color:var(--text);font-size:14px;line-height:1.45;
+    background:#e9eef5;position:relative;overflow-x:hidden}
+  /* ambient color wash behind the frosted glass */
+  body::before{content:"";position:fixed;inset:0;z-index:-2;
+    background:
+      radial-gradient(40rem 40rem at 12% -8%, rgba(43,95,142,.30), transparent 60%),
+      radial-gradient(38rem 38rem at 100% 0%, rgba(54,150,108,.22), transparent 58%),
+      radial-gradient(46rem 40rem at 80% 110%, rgba(216,150,40,.20), transparent 60%),
+      linear-gradient(160deg,#eef2f8,#e3e9f1);}
   .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
   a{color:var(--blue)}
   button{font-family:inherit;cursor:pointer}
   .hidden{display:none !important}
+  img.logo{height:22px;width:auto;display:block}
+  img.blogo{height:15px;width:auto;vertical-align:-2px;margin-right:5px;border-radius:3px}
+
+  /* glass primitives */
+  .glass{background:var(--glass);backdrop-filter:blur(16px) saturate(150%);
+    -webkit-backdrop-filter:blur(16px) saturate(150%);border:1px solid var(--stroke);
+    box-shadow:var(--shadow)}
 
   /* ---------- login ---------- */
   #login{min-height:100%;display:grid;place-items:center;padding:24px}
-  .login-card{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);
-    border-radius:var(--radius);padding:30px 28px;box-shadow:0 1px 0 rgba(0,0,0,.02)}
-  .brandmark{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-  .brandmark .dot{width:11px;height:11px;border-radius:3px;background:var(--ink);transform:rotate(45deg)}
-  .brandmark b{font-size:15px;letter-spacing:.02em}
-  .login-card h1{font-size:20px;margin:14px 0 4px;letter-spacing:-.01em}
-  .login-card p.sub{color:var(--muted);margin:0 0 20px;font-size:13px}
-  label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-weight:500}
-  input,select{width:100%;padding:9px 11px;border:1px solid var(--line-2);border-radius:8px;
-    font-family:inherit;font-size:14px;background:#fff;color:var(--text)}
-  input:focus,select:focus{outline:2px solid var(--blue);outline-offset:0;border-color:var(--blue)}
+  .login-card{width:100%;max-width:390px;border-radius:18px;padding:32px 30px}
+  .brandmark{display:flex;align-items:center;gap:10px}
+  .brandmark .dot{width:12px;height:12px;border-radius:3px;background:var(--ink);transform:rotate(45deg)}
+  .brandmark b{font-size:14px;letter-spacing:.06em;font-weight:700}
+  .login-card h1{font-size:21px;margin:16px 0 4px;letter-spacing:-.01em}
+  .login-card p.sub{color:var(--muted);margin:0 0 22px;font-size:13px}
+  label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-weight:600}
+  input,select{width:100%;padding:9px 11px;border:1px solid rgba(40,60,90,.18);border-radius:9px;
+    font-family:inherit;font-size:14px;background:rgba(255,255,255,.7);color:var(--text)}
+  input:focus,select:focus{outline:2px solid var(--blue);outline-offset:0;border-color:var(--blue);background:#fff}
   .field{margin-bottom:14px}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--ink);
-    background:var(--ink);color:#fff;padding:9px 16px;border-radius:8px;font-weight:600;font-size:14px}
+    background:var(--ink);color:#fff;padding:9px 16px;border-radius:9px;font-weight:600;font-size:14px}
   .btn:hover{background:var(--ink-2)}
   .btn.full{width:100%}
-  .btn.ghost{background:#fff;color:var(--ink)}
-  .btn.ghost:hover{background:#f3f1ea}
+  .btn.ghost{background:rgba(255,255,255,.5);color:var(--ink)}
+  .btn.ghost:hover{background:rgba(255,255,255,.8)}
+  .btn.sm{padding:6px 11px;font-size:12.5px;border-radius:8px}
   .btn[disabled]{opacity:.55;cursor:not-allowed}
   .msg{font-size:13px;margin-top:12px;min-height:18px}
   .msg.err{color:var(--red)} .msg.ok{color:var(--green)}
 
   /* ---------- shell ---------- */
-  #app{display:grid;grid-template-columns:228px 1fr;grid-template-rows:56px 1fr;height:100%}
-  .topbar{grid-column:1/3;display:flex;align-items:center;justify-content:space-between;
-    padding:0 18px;background:var(--ink);color:#fff;border-bottom:1px solid #0e1726}
+  #app{display:grid;grid-template-columns:230px 1fr;grid-template-rows:58px 1fr;height:100%}
+  .topbar{grid-column:1/3;display:flex;align-items:center;justify-content:space-between;padding:0 18px;
+    background:rgba(18,28,46,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border-bottom:1px solid rgba(255,255,255,.10);color:#fff}
   .topbar .brandmark .dot{background:#fff}
   .topbar .brandmark b{color:#fff}
-  .topbar .who{display:flex;align-items:center;gap:14px;font-size:13px;color:#cdd5e2}
+  .topbar .who{display:flex;align-items:center;gap:13px;font-size:13px;color:#d4dceb}
   .topbar .who .role{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;
-    background:#26405f;color:#dfe8f4;padding:3px 8px;border-radius:999px}
-  .topbar .who button{background:transparent;border:1px solid #3a5274;color:#dfe8f4;padding:5px 11px;border-radius:7px;font-size:12px}
-  .topbar .who button:hover{background:#26405f}
+    background:rgba(255,255,255,.14);color:#eaf0fa;padding:3px 9px;border-radius:999px}
+  .topbar .who button{background:transparent;border:1px solid rgba(255,255,255,.25);color:#eaf0fa;padding:5px 11px;border-radius:8px;font-size:12px}
+  .topbar .who button:hover{background:rgba(255,255,255,.12)}
 
-  .nav{background:var(--card);border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
-  .nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:0;
-    padding:9px 12px;border-radius:8px;color:var(--text);font-size:14px;font-weight:500}
-  .nav button:hover{background:#f1efe7}
+  .nav{margin:14px;border-radius:var(--radius);padding:12px 10px;display:flex;flex-direction:column;gap:3px;align-self:start}
+  .nav button{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:transparent;border:0;
+    padding:10px 12px;border-radius:10px;color:var(--text);font-size:14px;font-weight:500}
+  .nav button:hover{background:rgba(255,255,255,.55)}
   .nav button.active{background:var(--ink);color:#fff}
-  .nav button .ic{width:16px;text-align:center;opacity:.8;font-family:var(--mono)}
-  .nav .sep{height:1px;background:var(--line);margin:10px 4px}
-  .nav .hint{font-size:11px;color:var(--muted);padding:8px 12px;line-height:1.5}
+  .nav button .ic{width:16px;text-align:center;opacity:.85;font-family:var(--mono)}
+  .nav .sep{height:1px;background:var(--hair);margin:10px 4px}
+  .nav .hint{font-size:11px;color:var(--muted);padding:6px 12px;line-height:1.5}
 
-  .main{overflow:auto;padding:22px 26px}
-  .page-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px}
-  .page-head h2{font-size:19px;margin:0;letter-spacing:-.01em}
+  .main{overflow:auto;padding:8px 22px 28px}
+  .page-head{display:flex;align-items:baseline;justify-content:space-between;margin:14px 4px 16px}
+  .page-head h2{font-size:20px;margin:0;letter-spacing:-.01em}
   .page-head .meta{color:var(--muted);font-size:12px;font-family:var(--mono)}
 
-  /* ---------- kpi cards ---------- */
-  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+  /* ---------- kpis ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:13px;margin-bottom:18px}
   @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:560px){.kpis{grid-template-columns:repeat(2,1fr)}}
-  .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 15px;position:relative}
-  .kpi .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
-  .kpi .v{font-family:var(--mono);font-size:26px;font-weight:600;margin-top:8px;letter-spacing:-.01em}
+  .kpi{border-radius:var(--radius);padding:15px 16px;position:relative;overflow:hidden}
+  .kpi .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+  .kpi .v{font-family:var(--mono);font-size:27px;font-weight:600;margin-top:8px;letter-spacing:-.01em}
   .kpi.attn .v{color:var(--amber)} .kpi.bad .v{color:var(--red)}
-  .kpi .edge{position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:3px;background:var(--line-2)}
+  .kpi .edge{position:absolute;left:0;top:13px;bottom:13px;width:3px;border-radius:3px;background:rgba(40,60,90,.25)}
   .kpi.attn .edge{background:var(--amber)} .kpi.bad .edge{background:var(--red)}
 
-  /* ---------- panels ---------- */
   .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px}
   @media(max-width:900px){.grid2{grid-template-columns:1fr}}
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-  .panel h3{margin:0;padding:13px 16px;font-size:13px;font-weight:600;border-bottom:1px solid var(--line);
+  .panel{border-radius:var(--radius);overflow:hidden}
+  .panel h3{margin:0;padding:13px 16px;font-size:13px;font-weight:700;border-bottom:1px solid var(--hair);
     display:flex;align-items:center;justify-content:space-between}
   .panel h3 .tag{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500}
   .panel .body{padding:14px 16px}
   canvas{max-width:100%}
 
   /* ---------- tables ---------- */
+  .tablewrap{overflow:auto}
   table{width:100%;border-collapse:collapse;font-size:13px}
   thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
-    font-weight:600;padding:9px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card)}
-  tbody td{padding:9px 12px;border-bottom:1px solid #efece4;vertical-align:top}
-  tbody tr:hover{background:#faf9f4}
+    font-weight:700;padding:9px 12px;border-bottom:1px solid var(--hair);position:sticky;top:0;
+    background:var(--glass-2);backdrop-filter:blur(8px)}
+  tbody td{padding:8px 12px;border-bottom:1px solid var(--hair);vertical-align:middle}
+  tbody tr:hover{background:rgba(255,255,255,.5)}
   td.code,td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
   td.n{text-align:right}
+  td.desc{min-width:240px;max-width:360px;white-space:normal;line-height:1.35}
   tr.delayed td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
   .chip{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;
     font-family:var(--mono);letter-spacing:.01em}
@@ -110,29 +129,39 @@
   .chip.avail{background:var(--green-bg);color:var(--green)}
   .chip.limited{background:var(--amber-bg);color:var(--amber)}
   .chip.delay{background:var(--amber-bg);color:var(--amber)}
-  .chip.neutral{background:#eef0f3;color:#516074}
+  .chip.dg{background:var(--red-bg);color:var(--red)}
+  .chip.nondg{background:var(--green-bg);color:var(--green)}
+  .chip.neutral{background:rgba(40,60,90,.10);color:#54627a}
+  .chip.newon{background:#1f7a46;color:#fff;cursor:pointer;letter-spacing:.06em;box-shadow:0 1px 3px rgba(31,122,70,.35)}
+  .chip.newoff{background:transparent;color:#2f7d5b;border:1px dashed rgba(47,125,91,.55);cursor:pointer;font-weight:600}
+  .chip.newoff:hover{background:var(--green-bg)}
+  .remcell{min-width:160px;max-width:250px;white-space:normal}
+  .remcell:hover{background:rgba(43,95,142,.06)}
+  .remhint{color:#9aa3b2;font-style:italic;cursor:text}
+  .reminput{width:100%;padding:5px 8px;border:1px solid var(--blue);border-radius:7px;font:inherit;background:#fff}
+  .thumb{width:38px;height:38px;border-radius:8px;object-fit:cover;background:#fff;border:1px solid var(--hair);display:block}
+  .thumb.ph{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:600;font-size:12px;color:#fff}
+  .flag{margin-right:6px}
+  .brandcell{white-space:nowrap}
   .empty{color:var(--muted);text-align:center;padding:34px 16px;font-size:13px}
   .empty b{display:block;color:var(--text);font-weight:600;margin-bottom:4px}
 
-  /* ---------- toolbar / filters ---------- */
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
-  .toolbar input[type=search]{max-width:280px}
-  .toolbar select{width:auto;min-width:130px}
+  /* ---------- toolbar ---------- */
+  .toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin:0 2px 14px}
+  .toolbar input[type=search]{max-width:250px}
+  .toolbar select{width:auto;min-width:120px}
   .toolbar .grow{flex:1}
-  .checkline{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text)}
+  .checkline{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text);white-space:nowrap}
   .checkline input{width:auto}
 
   /* ---------- upload ---------- */
-  .drop{border:1.5px dashed var(--line-2);border-radius:var(--radius);background:var(--card);
-    padding:26px;text-align:center;color:var(--muted)}
-  .drop.has{border-style:solid;border-color:var(--green);color:var(--text)}
   .upgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:820px){.upgrid{grid-template-columns:1fr}}
-  .stat-row{display:flex;gap:18px;flex-wrap:wrap;margin:8px 0 2px}
+  .stat-row{display:flex;gap:22px;flex-wrap:wrap;margin:6px 0 2px}
   .stat-row .s{font-family:var(--mono)}
-  .stat-row .s b{font-size:20px;display:block}
+  .stat-row .s b{font-size:22px;display:block}
   .note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
-  .banner{padding:11px 14px;border-radius:9px;font-size:13px;margin:10px 0}
+  .banner{padding:11px 14px;border-radius:10px;font-size:13px;margin:10px 0}
   .banner.ok{background:var(--green-bg);color:#1f5a40}
   .banner.err{background:var(--red-bg);color:#8c241e}
   .banner.warn{background:var(--amber-bg);color:#8a560f}
@@ -145,19 +174,17 @@
 
   <!-- ===== LOGIN ===== -->
   <div id="login">
-    <div class="login-card">
-      <div class="brandmark"><span class="dot"></span><b>SPACE&nbsp;GLOBAL</b></div>
+    <div class="login-card glass">
+      <div class="brandmark">
+        <img class="logo" id="loginLogo" src="logo-space.png" alt="" onerror="this.style.display='none';document.getElementById('loginDot').style.display='inline-block'" />
+        <span class="dot" id="loginDot" style="display:none"></span>
+        <b>SPACE&nbsp;GLOBAL</b>
+      </div>
       <h1>Incoming Stock</h1>
       <p class="sub">Sign in to view shipments, ETAs, and factory status.</p>
       <form id="loginForm">
-        <div class="field">
-          <label for="email">Email</label>
-          <input id="email" type="email" autocomplete="username" required />
-        </div>
-        <div class="field">
-          <label for="password">Password</label>
-          <input id="password" type="password" autocomplete="current-password" required />
-        </div>
+        <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="username" required /></div>
+        <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required /></div>
         <button class="btn full" id="loginBtn" type="submit">Sign in</button>
         <div class="msg" id="loginMsg"></div>
       </form>
@@ -167,102 +194,92 @@
   <!-- ===== APP ===== -->
   <div id="app" class="hidden">
     <div class="topbar">
-      <div class="brandmark"><span class="dot"></span><b>SPACE&nbsp;GLOBAL&nbsp;·&nbsp;Incoming&nbsp;Stock</b></div>
+      <div class="brandmark">
+        <img class="logo" id="spaceLogo" src="logo-space.png" alt="" onerror="this.style.display='none';document.getElementById('topDot').style.display='inline-block'" />
+        <span class="dot" id="topDot" style="display:none"></span>
+        <b>SPACE&nbsp;GLOBAL&nbsp;·&nbsp;Incoming&nbsp;Stock</b>
+      </div>
       <div class="who">
-        <span id="whoEmail"></span>
-        <span class="role" id="whoRole"></span>
+        <span id="whoEmail"></span><span class="role" id="whoRole"></span>
         <button id="signOut">Sign out</button>
       </div>
     </div>
 
-    <nav class="nav">
+    <nav class="nav glass">
       <button data-view="dashboard" class="active"><span class="ic">▦</span> Dashboard</button>
       <button data-view="incoming"><span class="ic">≣</span> Incoming stock</button>
       <button data-view="upload" id="navUpload"><span class="ic">↥</span> Upload sheet</button>
       <div class="sep"></div>
-      <div class="hint">Data refreshes each time you open a tab. Uploading is limited to Operations and Admin.</div>
+      <div class="hint">Data refreshes when you open a tab. Uploading is limited to Operations and Admin.</div>
     </nav>
 
     <main class="main">
       <!-- Dashboard -->
       <section id="view-dashboard">
-        <div class="page-head">
-          <h2>Dashboard</h2>
-          <span class="meta" id="dashMeta"></span>
-        </div>
+        <div class="page-head"><h2>Dashboard</h2><span class="meta" id="dashMeta"></span></div>
         <div class="kpis" id="kpis"></div>
         <div class="grid2">
-          <div class="panel">
+          <div class="panel glass">
             <h3>Needs attention — delayed <span class="tag" id="delayCount"></span></h3>
             <div class="body" style="padding:0"><div id="delayTable"></div></div>
           </div>
-          <div class="panel">
-            <h3>Arrivals by timing</h3>
-            <div class="body"><canvas id="etaChart" height="200"></canvas></div>
-          </div>
+          <div class="panel glass"><h3>Arrivals by timing</h3><div class="body"><canvas id="etaChart" height="200"></canvas></div></div>
         </div>
         <div class="grid2">
-          <div class="panel">
+          <div class="panel glass">
             <h3>Out of stock at factory <span class="tag" id="oosCount"></span></h3>
             <div class="body" style="padding:0"><div id="oosTable"></div></div>
           </div>
-          <div class="panel">
-            <h3>Volume by brand</h3>
-            <div class="body"><canvas id="brandChart" height="200"></canvas></div>
-          </div>
+          <div class="panel glass"><h3>Volume by brand</h3><div class="body"><canvas id="brandChart" height="200"></canvas></div></div>
         </div>
       </section>
 
       <!-- Incoming -->
       <section id="view-incoming" class="hidden">
-        <div class="page-head">
-          <h2>Incoming stock</h2>
-          <span class="meta" id="incMeta"></span>
-        </div>
+        <div class="page-head"><h2>Incoming stock</h2><span class="meta" id="incMeta"></span></div>
         <div class="toolbar">
           <input type="search" id="incSearch" placeholder="Search SKU, product, PO…" />
           <select id="incBrand"><option value="">All brands</option></select>
           <select id="incRegion"><option value="">All regions</option></select>
+          <select id="incFactory">
+            <option value="">Any stock status</option>
+            <option value="out_of_stock">Out of stock</option>
+            <option value="available">Available</option>
+            <option value="limited_stock">Limited</option>
+            <option value="discontinued">Discontinued</option>
+          </select>
+          <select id="incMode">
+            <option value="">DG &amp; Non-DG</option>
+            <option value="DG">DG only</option>
+            <option value="NON-DG">Non-DG only</option>
+          </select>
           <label class="checkline"><input type="checkbox" id="incDelayed" /> Delayed only</label>
           <span class="grow"></span>
-          <button class="btn ghost" id="incRefresh">Refresh</button>
+          <button class="btn ghost sm" id="incExportView">Export view</button>
+          <button class="btn ghost sm" id="incExportAll">Export all</button>
         </div>
-        <div class="panel"><div class="body" style="padding:0"><div id="incTable"></div></div></div>
+        <div class="panel glass"><div class="body" style="padding:0"><div id="incTable"></div></div></div>
       </section>
 
       <!-- Upload -->
       <section id="view-upload" class="hidden">
-        <div class="page-head">
-          <h2>Upload sheet</h2>
-          <span class="meta">Excel in, dashboard out</span>
-        </div>
+        <div class="page-head"><h2>Upload sheet</h2><span class="meta">Excel in, dashboard out</span></div>
         <div class="upgrid">
-          <div class="panel">
+          <div class="panel glass">
             <h3>1 · Choose template &amp; file</h3>
             <div class="body">
-              <div class="field">
-                <label for="upMapping">Which sheet is this?</label>
-                <select id="upMapping"></select>
-              </div>
-              <div class="field">
-                <label for="upFile">Excel file (.xlsx or .xls)</label>
-                <input type="file" id="upFile" accept=".xlsx,.xls" />
-              </div>
+              <div class="field"><label for="upMapping">Which sheet is this?</label><select id="upMapping"></select></div>
+              <div class="field"><label for="upFile">Excel file (.xlsx or .xls)</label><input type="file" id="upFile" accept=".xlsx,.xls" /></div>
               <button class="btn ghost" id="upRead">Read file</button>
               <div class="note">Nothing is saved yet at this step — you'll see a preview first, then decide to import.</div>
             </div>
           </div>
-          <div class="panel">
+          <div class="panel glass">
             <h3>2 · Preview &amp; import</h3>
-            <div class="body">
-              <div id="upPreview"><div class="empty"><b>No file read yet</b>Pick a template and file, then “Read file”.</div></div>
-            </div>
+            <div class="body"><div id="upPreview"><div class="empty"><b>No file read yet</b>Pick a template and file, then “Read file”.</div></div></div>
           </div>
         </div>
-        <div class="panel" style="margin-top:16px">
-          <h3>Recent uploads</h3>
-          <div class="body" style="padding:0"><div id="upLog"></div></div>
-        </div>
+        <div class="panel glass" style="margin-top:16px"><h3>Recent uploads</h3><div class="body" style="padding:0"><div id="upLog"></div></div></div>
       </section>
     </main>
   </div>
