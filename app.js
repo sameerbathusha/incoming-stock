@@ -147,6 +147,8 @@ async function loadIncoming() {
     ["incSearch", "incBrand", "incRegion", "incFactory", "incMode", "incDelayed"].forEach((id) => $(id).addEventListener("input", debounce(runIncoming, 250)));
     $("incExportView").addEventListener("click", () => exportRows(lastRows, "incoming-view"));
     $("incExportAll").addEventListener("click", exportAll);
+    $("incFetchImg").addEventListener("click", fetchImages);
+    $("incFetchImg").classList.toggle("hidden", !state.canUpload);
     $("incTable").addEventListener("click", onIncTableClick);
   }
   runIncoming();
@@ -228,7 +230,6 @@ async function runIncoming() {
     ]),
     { classes: data.map((r) => (r.is_delayed ? "delayed" : "")) }
   );
-  resolveImages(data);
 }
 function newTag(isNew) {
   if (isNew) return `<span class="chip newon" data-on="1">NEW</span>`;
@@ -252,43 +253,27 @@ function modeChip(s) {
   return `<span class="chip neutral">${esc(s)}</span>`;
 }
 
-// ---- product images (best-effort from space.ae, cached in products.image_url)
-async function resolveImages(rows) {
-  if (typeof fetch === "undefined") return;
-  const todo = rows.map((r, i) => ({ r, i })).filter((x) => !x.r.image_url && imgCache[x.r.sku] === undefined).slice(0, 60);
-  let active = 0, idx = 0;
-  const next = () => {
-    while (active < 4 && idx < todo.length) {
-      const { r, i } = todo[idx++]; active++;
-      lookupImage(r).then((url) => {
-        imgCache[r.sku] = url || null;
-        if (url) {
-          const node = $("thumb-" + i);
-          if (node) node.outerHTML = `<img class="thumb" src="${esc(url)}" alt="">`;
-          if (state.canUpload) sb.from("products").update({ image_url: url }).eq("sku", r.sku).then(() => {});
-        }
-      }).catch(() => { imgCache[r.sku] = null; }).finally(() => { active--; next(); });
+// ---- product images -------------------------------------------------------
+// Images are fetched server-side (space.ae blocks direct browser calls) and
+// cached in products.image_url. This button fills in any that are missing.
+async function fetchImages() {
+  const btn = $("incFetchImg"); if (!btn) return;
+  const original = btn.textContent;
+  btn.disabled = true;
+  let updated = 0, iterations = 0;
+  try {
+    while (iterations++ < 50) {
+      btn.innerHTML = `<span class="spin"></span> ${updated} found…`;
+      const { data, error } = await sb.rpc("app_fetch_images", { p_limit: 5 });
+      if (error) { alert(error.message); break; }
+      updated += data.updated || 0;
+      if ((data.tried || 0) < 5) break; // no more products left without an image
     }
-  };
-  next();
-}
-async function lookupImage(r) {
-  const queries = [r.ean, r.sku].filter(Boolean);
-  for (const term of queries) {
-    try {
-      const url = `https://www.space.ae/search/suggest.json?q=${encodeURIComponent(term)}&resources[type]=product&resources[limit]=3`;
-      const resp = await fetch(url, { headers: { Accept: "application/json" } });
-      if (!resp.ok) continue;
-      const j = await resp.json();
-      const prods = j?.resources?.results?.products || [];
-      for (const p of prods) {
-        let img = p.image || p.featured_image || (p.images && p.images[0]);
-        if (img && typeof img === "object") img = img.url || img.src;
-        if (img) return img.startsWith("//") ? "https:" + img : img;
-      }
-    } catch (e) { /* CORS / network — fall through to placeholder */ }
+  } finally {
+    btn.disabled = false; btn.textContent = original;
   }
-  return null;
+  await runIncoming();
+  alert(`Done — found ${updated} image${updated === 1 ? "" : "s"}. Products without a match on space.ae keep their colored tile.`);
 }
 
 // ---- export ----------------------------------------------------------------
