@@ -25,7 +25,8 @@ const fmtDMY = (iso) => { if (!iso) return "—"; const m = String(iso).match(/^
 
 const FLAGS = { "UAE": "🇦🇪", "Qatar": "🇶🇦", "Bahrain": "🇧🇭", "Kuwait": "🇰🇼", "Oman": "🇴🇲", "Saudi Arabia": "🇸🇦" };
 const flag = (region) => FLAGS[region] ? `<span class="flag">${FLAGS[region]}</span>` : "";
-const BRAND_TINT = { AT: "#2b5f8e", Momax: "#7b4fa3", Tangem: "#2f7d5b" };
+const BRAND_TINT = { AT: "#00A651", Momax: "#00AEEF", Tangem: "#111111" };
+const brandColor = (b) => BRAND_TINT[b] || "#5a6b86";
 
 const COMPANY_ID = "a0000000-0000-4000-8000-000000000001";
 let state = { profile: null, charts: {}, canUpload: false };
@@ -33,14 +34,21 @@ const imgCache = {};   // sku -> url | null (null = tried, none found)
 
 function brandCell(brand) {
   if (!brand) return "—";
+  const c = brandColor(brand);
   const file = "logo-" + String(brand).toLowerCase().replace(/[^a-z0-9]/g, "") + ".png";
-  return `<span class="brandcell"><img class="blogo" src="${file}" alt="" onerror="this.style.display='none'">${esc(brand)}</span>`;
+  return `<span class="brandcell" style="color:${c}"><img class="blogo" src="${file}" alt="" onerror="this.style.display='none'"><span class="bdot" style="background:${c}"></span>${esc(brand)}</span>`;
 }
 function thumb(i, row) {
-  const tint = BRAND_TINT[row.brand] || "#5a6b86";
+  const tint = brandColor(row.brand);
   const initial = esc((row.brand || row.sku || "?").slice(0, 1).toUpperCase());
-  if (row.image_url) return `<img class="thumb" src="${esc(row.image_url)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=&quot;thumb ph&quot; style=&quot;background:${tint}&quot;>${initial}</div>'">`;
-  return `<div class="thumb ph" id="thumb-${i}" style="background:${tint}">${initial}</div>`;
+  const inner = row.image_url
+    ? `<img class="thumb" src="${esc(row.image_url)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=&quot;thumb ph&quot; style=&quot;background:${tint}&quot;>${initial}</div>'">`
+    : `<div class="thumb ph" id="thumb-${i}" style="background:${tint}">${initial}</div>`;
+  const badge = row.is_new ? `<span class="newbadge">NEW</span>` : "";
+  const can = state.canUpload ? " can" : "";
+  const title = state.canUpload ? ' title="Click to mark / unmark as New"' : "";
+  const up = state.canUpload ? `<button class="upbtn" data-sku="${esc(row.sku)}" title="Upload an image">↑</button>` : "";
+  return `<div class="thumbwrap${can}" data-id="${row.id}" data-new="${row.is_new ? 1 : 0}"${title}>${inner}${badge}${up}</div>`;
 }
 
 // ---- auth ------------------------------------------------------------------
@@ -66,6 +74,7 @@ async function enterApp() {
   $("whoEmail").textContent = state.profile.email || u.user.email;
   $("whoRole").textContent = state.profile.role;
   $("navUpload").classList.toggle("hidden", !state.canUpload);
+  $("navAdd").classList.toggle("hidden", !state.canUpload);
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
   go("dashboard");
@@ -75,10 +84,11 @@ async function enterApp() {
 document.querySelectorAll(".nav button[data-view]").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
 function go(view) {
   document.querySelectorAll(".nav button[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
-  ["dashboard", "incoming", "upload"].forEach((v) => $("view-" + v).classList.toggle("hidden", v !== view));
+  ["dashboard", "incoming", "upload", "add"].forEach((v) => $("view-" + v).classList.toggle("hidden", v !== view));
   if (view === "dashboard") loadDashboard();
   if (view === "incoming") loadIncoming();
   if (view === "upload") loadUpload();
+  if (view === "add") loadAdd();
 }
 
 // ---- dashboard -------------------------------------------------------------
@@ -125,13 +135,32 @@ function drawEtaChart(rows) {
     { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } });
 }
 function drawBrandChart(rows) {
-  chart("brandChart", "doughnut", { labels: rows.map((r) => r.brand || "—"), datasets: [{ data: rows.map((r) => Number(r.quantity || 0)), backgroundColor: ["#16233a", "#2b5f8e", "#2f7d5b", "#b9751a", "#7b4fa3", "#b23029"], borderWidth: 0 }] },
-    { plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } }, cutout: "62%" });
+  const labels = rows.map((r) => r.brand || "—");
+  const values = rows.map((r) => Number(r.quantity || 0));
+  const colors = rows.map((r) => brandColor(r.brand));
+  // inline plugin: print each slice's quantity on the arc
+  const sliceNumbers = {
+    id: "sliceNumbers",
+    afterDraw(c) {
+      const { ctx } = c; const meta = c.getDatasetMeta(0);
+      ctx.save(); ctx.font = "700 12px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      meta.data.forEach((arc, idx) => {
+        const v = values[idx]; if (!v) return;
+        const p = arc.getCenterPoint(); ctx.fillStyle = "#fff";
+        ctx.fillText(v.toLocaleString(), p.x, p.y);
+      });
+      ctx.restore();
+    },
+  };
+  chart("brandChart", "doughnut",
+    { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: "rgba(255,255,255,.85)" }] },
+    { plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 12, weight: "600" } } } }, cutout: "58%" },
+    [sliceNumbers]);
 }
-function chart(id, type, data, options) {
+function chart(id, type, data, options, plugins = []) {
   if (typeof Chart === "undefined") return;
   if (state.charts[id]) state.charts[id].destroy();
-  state.charts[id] = new Chart($(id), { type, data, options: { responsive: true, maintainAspectRatio: false, ...options } });
+  state.charts[id] = new Chart($(id), { type, data, options: { responsive: true, maintainAspectRatio: false, ...options }, plugins });
 }
 
 // ---- incoming --------------------------------------------------------------
@@ -150,6 +179,7 @@ async function loadIncoming() {
     $("incFetchImg").addEventListener("click", fetchImages);
     $("incFetchImg").classList.toggle("hidden", !state.canUpload);
     $("incTable").addEventListener("click", onIncTableClick);
+    bindImageUpload();
   }
   runIncoming();
 }
@@ -158,15 +188,24 @@ function rowById(id) { return lastRows.find((r) => String(r.id) === String(id));
 
 async function onIncTableClick(e) {
   if (!state.canUpload) return;
-  const chip = e.target.closest(".newon,.newoff");
-  if (chip) {
-    const cell = chip.closest(".newcell"); const id = cell.dataset.id;
-    const turnOn = chip.dataset.on !== "1";
-    cell.innerHTML = '<span class="remhint">…</span>';
+  const upb = e.target.closest(".upbtn");
+  if (upb) {
+    e.stopPropagation();
+    pendingImgSku = upb.dataset.sku;
+    $("imgFileInput").click();
+    return;
+  }
+  const tw = e.target.closest(".thumbwrap.can");
+  if (tw) {
+    const id = tw.dataset.id;
+    const turnOn = tw.dataset.new !== "1";
     const { error } = await sb.rpc("app_set_line_tags", { p_id: id, p_is_new: turnOn });
-    if (error) { cell.innerHTML = newTag(!turnOn); alert(error.message); return; }
+    if (error) { alert(error.message); return; }
     const row = rowById(id); if (row) row.is_new = turnOn;
-    cell.innerHTML = newTag(turnOn);
+    tw.dataset.new = turnOn ? "1" : "0";
+    const existing = tw.querySelector(".newbadge");
+    if (turnOn && !existing) tw.insertAdjacentHTML("beforeend", '<span class="newbadge">NEW</span>');
+    if (!turnOn && existing) existing.remove();
     return;
   }
   const cell = e.target.closest(".remcell");
@@ -213,27 +252,23 @@ async function runIncoming() {
   $("incMeta").textContent = `${data.length} line${data.length === 1 ? "" : "s"}${data.length === 1000 ? " (first 1000)" : ""}`;
   if (!data.length) { $("incTable").innerHTML = emptyState("No matching lines", "Try clearing the filters."); return; }
   $("incTable").innerHTML = table(
-    ["", "SKU", "Product", "Brand", "Region", "PO", "Qty", "ETA", "Factory", "Mode", "New", "Remarks"],
+    ["", "SKU", "Product", "Brand", "Region", "PO", "Qty", "ETA", "Factory", "Mode", "Remarks"],
     data.map((r, i) => [
       `<td>${thumb(i, r)}</td>`,
       `<td class="code">${esc(r.sku)}</td>`,
       `<td class="desc" title="${esc(r.product_name)}">${esc(r.product_name)}</td>`,
       `<td>${brandCell(r.brand)}</td>`,
       `<td>${flag(r.region)}${esc(r.region || "")}</td>`,
-      `<td class="code">${esc(r.po_number)}</td>`,
-      `<td class="n">${fmt(r.ordered_quantity)}</td>`,
-      `<td class="code">${r.is_delayed ? `<span class="chip delay">${fmtDMY(r.eta || r.po_deadline)}</span>` : fmtDMY(r.eta || r.po_deadline)}</td>`,
+      `<td class="code c">${esc(r.po_number)}</td>`,
+      `<td class="code c">${fmt(r.ordered_quantity)}</td>`,
+      `<td class="code c">${r.is_delayed ? `<span class="chip delay">${fmtDMY(r.eta || r.po_deadline)}</span>` : fmtDMY(r.eta || r.po_deadline)}</td>`,
       `<td>${factoryChip(r.factory_status)}</td>`,
       `<td>${modeChip(r.ship_mode)}</td>`,
-      `<td class="newcell" data-id="${r.id}">${newTag(r.is_new)}</td>`,
       `<td class="remcell" data-id="${r.id}">${remCell(r.remarks)}</td>`,
     ]),
-    { classes: data.map((r) => (r.is_delayed ? "delayed" : "")) }
+    { classes: data.map((r) => (r.is_delayed ? "delayed" : "")),
+      aligns: ["", "", "", "", "", "c", "c", "c", "", "", ""] }
   );
-}
-function newTag(isNew) {
-  if (isNew) return `<span class="chip newon" data-on="1">NEW</span>`;
-  return state.canUpload ? `<span class="chip newoff" data-on="0">+ New</span>` : "";
 }
 function remCell(text) {
   if (text) return esc(text);
@@ -350,16 +385,70 @@ async function loadUploadLog() {
   $("upLog").innerHTML = data?.length ? table(["File", "When", "Rows", "New", "Updated", "Same", "Status"],
     data.map((r) => [
       `<td>${esc(r.file_name)}</td>`, `<td class="code">${esc(new Date(r.started_at).toLocaleString())}</td>`,
-      `<td class="n">${fmt(r.total_rows)}</td>`, `<td class="n">${fmt(r.created_count)}</td>`,
-      `<td class="n">${fmt(r.updated_count)}</td>`, `<td class="n">${fmt(r.unchanged_count)}</td>`,
+      `<td class="code c">${fmt(r.total_rows)}</td>`, `<td class="code c">${fmt(r.created_count)}</td>`,
+      `<td class="code c">${fmt(r.updated_count)}</td>`, `<td class="code c">${fmt(r.unchanged_count)}</td>`,
       `<td><span class="chip ${r.status === "completed" ? "avail" : "neutral"}">${esc(r.status)}</span></td>`,
-    ])) : emptyState("No uploads yet", "Your first import will appear here.");
+    ]), { aligns: ["", "", "c", "c", "c", "c", ""] }) : emptyState("No uploads yet", "Your first import will appear here.");
 }
 
-// ---- shared render ---------------------------------------------------------
+// ---- manual add ------------------------------------------------------------
+let addInit = false;
+async function loadAdd() {
+  if (!addInit) {
+    addInit = true;
+    const [{ data: brands }, { data: regions }] = await Promise.all([
+      sb.from("brands").select("name").order("name"), sb.from("regions").select("name").order("name"),
+    ]);
+    $("adBrand").innerHTML = '<option value="">Select…</option>' + (brands || []).map((b) => `<option>${esc(b.name)}</option>`).join("");
+    $("adRegion").innerHTML = '<option value="">Select…</option>' + (regions || []).map((r) => `<option>${esc(r.name)}</option>`).join("");
+    $("adSave").addEventListener("click", saveAdd);
+  }
+}
+async function saveAdd() {
+  const v = (id) => $(id).value.trim();
+  const f = { brand: v("adBrand"), region: v("adRegion"), po: v("adPo"), sku: v("adSku"), name: v("adName"),
+    ean: v("adEan"), qty: v("adQty"), deadline: v("adDeadline"), mode: v("adMode"), factory: v("adFactory"), remarks: v("adRemarks") };
+  const missing = Object.entries(f).filter(([, val]) => val === "").map(([k]) => k);
+  if (missing.length) { $("adResult").innerHTML = banner("warn", "Please fill in every field before saving."); return; }
+  const btn = $("adSave"); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Saving…';
+  const { error } = await sb.rpc("app_add_line", {
+    p_brand: f.brand, p_region: f.region, p_po: f.po, p_sku: f.sku, p_name: f.name, p_ean: f.ean,
+    p_qty: Number(f.qty), p_deadline: f.deadline, p_ship_mode: f.mode, p_factory_status: f.factory, p_remarks: f.remarks });
+  btn.disabled = false; btn.textContent = "Add to incoming stock";
+  if (error) { $("adResult").innerHTML = banner("err", error.message); return; }
+  $("adResult").innerHTML = banner("ok", `Added <b>${esc(f.sku)}</b> (${esc(f.region)}) to incoming stock.`);
+  ["adPo", "adSku", "adName", "adEan", "adQty", "adDeadline", "adRemarks"].forEach((id) => ($(id).value = ""));
+  incInit && runIncoming();
+}
+
+// ---- manual image upload ---------------------------------------------------
+let pendingImgSku = null;
+function bindImageUpload() {
+  const input = $("imgFileInput");
+  if (!input || input.dataset.bound) return;
+  input.dataset.bound = "1";
+  input.addEventListener("change", async () => {
+    const file = input.files[0]; const sku = pendingImgSku; input.value = ""; pendingImgSku = null;
+    if (!file || !sku) return;
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = `${sku.replace(/[^A-Za-z0-9_.-]/g, "_")}-${Date.now()}.${ext}`;
+      const up = await sb.storage.from("product-images").upload(path, file, { upsert: true, contentType: file.type });
+      if (up.error) throw up.error;
+      const { data: pub } = sb.storage.from("product-images").getPublicUrl(path);
+      const url = pub.publicUrl;
+      const { error } = await sb.rpc("app_set_product_image", { p_sku: sku, p_url: url });
+      if (error) throw error;
+      lastRows.forEach((r) => { if (r.sku === sku) r.image_url = url; });
+      runIncoming();
+    } catch (e) { alert("Image upload failed: " + (e.message || e)); }
+  });
+}
+
+
 function table(headers, rows, opts = {}) {
-  const { sticky = false, classes = [] } = opts;
-  const head = headers.map((h) => `<th>${esc(h)}</th>`).join("");
+  const { sticky = false, classes = [], aligns = [] } = opts;
+  const head = headers.map((h, i) => `<th${aligns[i] === "c" ? ' style="text-align:center"' : aligns[i] === "r" ? ' style="text-align:right"' : ""}>${esc(h)}</th>`).join("");
   const body = rows.map((cells, i) => `<tr class="${classes[i] || ""}">${cells.join("")}</tr>`).join("");
   return `<div class="tablewrap" style="${sticky ? "max-height:360px" : ""}"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
