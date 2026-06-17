@@ -168,6 +168,36 @@
   .spin{display:inline-block;width:14px;height:14px;border:2px solid #ffffff60;border-top-color:#fff;
     border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
   @keyframes sp{to{transform:rotate(360deg)}}
+  /* ---------- mobile ---------- */
+  @media(max-width:760px){
+    #app{grid-template-columns:1fr;grid-template-rows:54px auto 1fr}
+    .topbar{grid-column:1/-1;padding:0 12px}
+    .nav,.main{grid-column:1}
+    .topbar .brandmark b{font-size:10px;letter-spacing:.02em}
+    .topbar .brandmark img.logo{height:18px}
+    .topbar .who{gap:8px}
+    .topbar .who #whoEmail{display:none}
+    .topbar .who .role{font-size:10px;padding:2px 7px}
+    .nav{flex-direction:row;margin:8px;padding:7px;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .nav button{width:auto;white-space:nowrap;padding:8px 12px;flex:0 0 auto}
+    .nav .sep,.nav .hint{display:none}
+    .main{padding:6px 12px 22px}
+    .page-head{flex-direction:column;align-items:flex-start;gap:3px;margin:10px 2px 12px}
+    .page-head h2{font-size:18px}
+    .kpis{grid-template-columns:repeat(2,1fr);gap:10px}
+    .kpi .v{font-size:23px}
+    .grid2{grid-template-columns:1fr}
+    .toolbar input[type=search]{max-width:none;flex:1 1 100%;order:-1}
+    .toolbar select{flex:1 1 calc(50% - 5px);min-width:0}
+    .toolbar .grow{display:none}
+    .toolbar .btn.sm{flex:1 1 calc(33% - 6px)}
+    td.desc{min-width:150px;max-width:200px}
+    .upgrid{grid-template-columns:1fr}
+  }
+  @media(max-width:420px){
+    .kpis{grid-template-columns:1fr 1fr;gap:8px}
+    .topbar .brandmark b{display:none}
+  }
 </style>
 </head>
 <body>
@@ -255,6 +285,7 @@
           </select>
           <label class="checkline"><input type="checkbox" id="incDelayed" /> Delayed only</label>
           <span class="grow"></span>
+          <button class="btn ghost sm" id="incFetchImg">Get images</button>
           <button class="btn ghost sm" id="incExportView">Export view</button>
           <button class="btn ghost sm" id="incExportAll">Export all</button>
         </div>
