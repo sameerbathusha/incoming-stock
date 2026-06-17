@@ -88,6 +88,19 @@ function findColumn(headers, sourceHeader) {
  * @param {object} XLSX      the SheetJS library (browser global or node import)
  * @returns {{rows: object[], report: object}}
  */
+// Recognize a region from a sheet/tab name, so new region tabs (Bahrain,
+// Kuwait, Oman, Saudi) are imported automatically without editing the template.
+function regionFromSheetName(name) {
+  const n = String(name || '').toLowerCase();
+  if (n.includes('bahrain')) return 'Bahrain';
+  if (n.includes('qatar')) return 'Qatar';
+  if (n.includes('kuwait')) return 'Kuwait';
+  if (n.includes('oman')) return 'Oman';
+  if (n.includes('saudi') || n.includes('ksa')) return 'Saudi Arabia';
+  if (n.includes('master') || n.includes('dubai') || n.includes('uae')) return 'UAE';
+  return null;
+}
+
 export function mapWorkbook(workbook, mapping, XLSX) {
   const fields = mapping.fields || {};
   const sheetsCfg = mapping.sheets || {};
@@ -102,8 +115,12 @@ export function mapWorkbook(workbook, mapping, XLSX) {
   const report = { sheetsSeen: workbook.SheetNames, sheetsUsed: [], skipped: 0, perSheet: {} };
 
   for (const sheetName of workbook.SheetNames) {
-    const cfg = sheetsCfg[sheetName];
-    if (!cfg) continue; // only import sheets named in the template
+    let cfg = sheetsCfg[sheetName];
+    if (!cfg) {
+      const region = regionFromSheetName(sheetName);
+      if (!region) continue; // not a recognizable region tab -> skip
+      cfg = { region, voucher_type: region === 'UAE' ? 'purchase' : 'sales' };
+    }
     report.sheetsUsed.push(sheetName);
 
     const ws = workbook.Sheets[sheetName];
