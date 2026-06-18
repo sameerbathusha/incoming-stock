@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
 <title>Space Global — Incoming Stock</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,7 +19,7 @@
     --sans:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
+  html,body{margin:0;height:100%;max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%}
   body{font-family:var(--sans);color:var(--text);font-size:14px;line-height:1.45;
     background:#e9eef5;position:relative;overflow-x:hidden}
   /* ambient color wash behind the frosted glass */
@@ -47,6 +47,7 @@
   .brandmark{display:flex;align-items:center;gap:10px}
   .brandmark .dot{width:12px;height:12px;border-radius:3px;background:var(--ink);transform:rotate(45deg)}
   .brandmark b{font-size:14px;letter-spacing:.06em;font-weight:700}
+  .login-brand b.sp{font-size:24px;font-weight:800;letter-spacing:.2em;color:var(--brand)}
   .login-card h1{font-size:21px;margin:16px 0 4px;letter-spacing:-.01em}
   .login-card p.sub{color:var(--muted);margin:0 0 22px;font-size:13px}
   label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-weight:600}
@@ -220,10 +221,8 @@
   <!-- ===== LOGIN ===== -->
   <div id="login">
     <div class="login-card glass">
-      <div class="brandmark">
-        <img class="logo" id="loginLogo" src="logo-space.png" alt="" onerror="this.style.display='none';document.getElementById('loginDot').style.display='inline-block'" />
-        <span class="dot" id="loginDot" style="display:none"></span>
-        <b>SPACE&nbsp;GLOBAL</b>
+      <div class="brandmark login-brand">
+        <b class="sp">SPACE</b>
       </div>
       <h1>Incoming Stock</h1>
       <p class="sub">Sign in to view shipments, ETAs, and factory status.</p>
@@ -253,7 +252,6 @@
       <button data-view="dashboard" class="active"><span class="ic">▦</span> Dashboard</button>
       <button data-view="incoming"><span class="ic">≣</span> Incoming stock</button>
       <button data-view="upload" id="navUpload"><span class="ic">↥</span> Upload sheet</button>
-      <button data-view="add" id="navAdd"><span class="ic">＋</span> Add item</button>
       <div class="sep"></div>
       <div class="hint">Data refreshes when you open a tab. Uploading is limited to Operations and Admin.</div>
     </nav>
@@ -325,14 +323,8 @@
             <div class="body"><div id="upPreview"><div class="empty"><b>No file read yet</b>Pick a template and file, then “Read file”.</div></div></div>
           </div>
         </div>
-        <div class="panel glass" style="margin-top:16px"><h3>Recent uploads</h3><div class="body" style="padding:0"><div id="upLog"></div></div></div>
-      </section>
-
-      <!-- Add item (manual) -->
-      <section id="view-add" class="hidden">
-        <div class="page-head"><h2>Add item</h2><span class="meta">Enter one incoming line by hand</span></div>
-        <div class="panel glass" style="max-width:760px">
-          <h3>New incoming line <span class="tag">all fields required</span></h3>
+        <div class="panel glass" style="margin-top:16px">
+          <h3>Add a single item by hand <span class="tag">all fields required</span></h3>
           <div class="body">
             <div class="formgrid">
               <div class="field"><label>Brand</label><select id="adBrand"></select></div>
@@ -357,6 +349,7 @@
             <div id="adResult"></div>
           </div>
         </div>
+        <div class="panel glass" style="margin-top:16px"><h3>Recent uploads</h3><div class="body" style="padding:0"><div id="upLog"></div></div></div>
       </section>
     </main>
   </div>
@@ -365,6 +358,6 @@
   <script src="config.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=8"></script>
 </body>
 </html>
