@@ -80,7 +80,10 @@ async function enterApp() {
     const nu = $("navUpload"); if (nu) nu.classList.toggle("hidden", !state.canUpload);
     $("login").classList.add("hidden");
     $("app").classList.remove("hidden");
-    go("dashboard");
+    let last = "dashboard";
+    try { const v = localStorage.getItem("lastView"); if (["dashboard", "incoming", "upload"].includes(v)) last = v; } catch (_) {}
+    if (last === "upload" && !state.canUpload) last = "dashboard";
+    go(last);
   } catch (err) {
     const m = $("loginMsg");
     if (m) { m.className = "msg err"; m.textContent = "Signed in, but the page needs a hard refresh to finish loading."; }
@@ -90,6 +93,7 @@ async function enterApp() {
 // ---- nav -------------------------------------------------------------------
 document.querySelectorAll(".nav button[data-view]").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
 function go(view) {
+  try { localStorage.setItem("lastView", view); } catch (_) {}
   document.querySelectorAll(".nav button[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   ["dashboard", "incoming", "upload"].forEach((v) => { const el = $("view-" + v); if (el) el.classList.toggle("hidden", v !== view); });
   if (view === "dashboard") loadDashboard();
@@ -201,6 +205,26 @@ async function onIncTableClick(e) {
     $("imgFileInput").click();
     return;
   }
+  const actNew = e.target.closest(".act.new");
+  if (actNew) {
+    const id = actNew.dataset.id; const turnOn = actNew.dataset.new !== "1";
+    const { error } = await sb.rpc("app_set_line_tags", { p_id: id, p_is_new: turnOn });
+    if (error) { alert(error.message); return; }
+    const row = rowById(id); if (row) row.is_new = turnOn;
+    runIncoming();
+    return;
+  }
+  const actEdit = e.target.closest(".act.edit");
+  if (actEdit) { openEditModal(actEdit.dataset.id); return; }
+  const actDel = e.target.closest(".act.del");
+  if (actDel) {
+    const id = actDel.dataset.id; const row = rowById(id);
+    if (!confirm(`Delete this line${row ? ` (${row.sku} · ${row.region})` : ""}? It will be removed from the dashboard.`)) return;
+    const { error } = await sb.rpc("app_delete_line", { p_id: id });
+    if (error) { alert(error.message); return; }
+    runIncoming();
+    return;
+  }
   const tw = e.target.closest(".thumbwrap.can");
   if (tw) {
     const id = tw.dataset.id;
@@ -216,6 +240,42 @@ async function onIncTableClick(e) {
   }
   const cell = e.target.closest(".remcell");
   if (cell && !cell.querySelector("input")) startRemarkEdit(cell);
+}
+
+// ---- edit modal ------------------------------------------------------------
+let editId = null, editBound = false;
+function openEditModal(id) {
+  const r = rowById(id); if (!r) return;
+  editId = id;
+  $("edIdent").textContent = `${r.sku} · ${r.brand || ""} · ${r.region || ""} · ${r.po_number || ""}`;
+  $("edName").value = r.product_name || "";
+  $("edEan").value = r.ean || "";
+  $("edQty").value = r.ordered_quantity ?? "";
+  $("edDeadline").value = (r.po_deadline || r.eta || "").slice(0, 10);
+  $("edMode").value = r.ship_mode || "";
+  $("edFactory").value = r.factory_status || "";
+  $("edRemarks").value = r.remarks || "";
+  if (!editBound) {
+    editBound = true;
+    $("edCancel").addEventListener("click", closeEditModal);
+    $("editModal").addEventListener("click", (ev) => { if (ev.target.id === "editModal") closeEditModal(); });
+    $("edSave").addEventListener("click", saveEditModal);
+  }
+  $("editModal").classList.remove("hidden");
+}
+function closeEditModal() { $("editModal").classList.add("hidden"); editId = null; }
+async function saveEditModal() {
+  if (!editId) return;
+  const btn = $("edSave"); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Saving…';
+  const { error } = await sb.rpc("app_update_line", {
+    p_id: editId, p_qty: $("edQty").value === "" ? null : Number($("edQty").value),
+    p_deadline: $("edDeadline").value || null, p_ship_mode: $("edMode").value,
+    p_factory_status: $("edFactory").value, p_remarks: $("edRemarks").value,
+    p_name: $("edName").value, p_ean: $("edEan").value });
+  btn.disabled = false; btn.textContent = "Save changes";
+  if (error) { alert(error.message); return; }
+  closeEditModal();
+  runIncoming();
 }
 
 function startRemarkEdit(cell) {
@@ -257,8 +317,9 @@ async function runIncoming() {
   lastRows = data;
   $("incMeta").textContent = `${data.length} line${data.length === 1 ? "" : "s"}${data.length === 1000 ? " (first 1000)" : ""}`;
   if (!data.length) { $("incTable").innerHTML = emptyState("No matching lines", "Try clearing the filters."); return; }
+  const showActions = state.canUpload;
   $("incTable").innerHTML = table(
-    ["", "SKU", "Product", "Brand", "Region", "PO", "Qty", "ETA", "Factory", "Mode", "Remarks"],
+    ["", "SKU", "Product", "Brand", "Region", "PO", "Qty", "ETA", "Factory", "Mode", "Remarks", showActions ? "Actions" : ""],
     data.map((r, i) => [
       `<td>${thumb(i, r)}</td>`,
       `<td class="code">${esc(r.sku)}</td>`,
@@ -271,9 +332,16 @@ async function runIncoming() {
       `<td>${factoryChip(r.factory_status)}</td>`,
       `<td>${modeChip(r.ship_mode)}</td>`,
       `<td class="remcell" data-id="${r.id}">${remCell(r.remarks)}</td>`,
+      showActions
+        ? `<td class="actions">
+             <button class="act new ${r.is_new ? "on" : ""}" data-id="${r.id}" data-new="${r.is_new ? 1 : 0}" title="${r.is_new ? "Unmark New" : "Mark as New"}">${r.is_new ? "★" : "☆"}</button>
+             <button class="act edit" data-id="${r.id}" title="Edit">✎</button>
+             <button class="act del" data-id="${r.id}" title="Delete">🗑</button>
+           </td>`
+        : "",
     ]),
     { classes: data.map((r) => (r.is_delayed ? "delayed" : "")),
-      aligns: ["", "", "", "", "", "c", "c", "c", "", "", ""] }
+      aligns: ["", "", "", "", "", "c", "c", "c", "", "", "", "r"] }
   );
 }
 function remCell(text) {
@@ -366,7 +434,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=9");
+    const { mapWorkbook } = await import("./mapping.js?v=10");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
