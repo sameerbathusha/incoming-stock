@@ -20,6 +20,8 @@ const $ = (id) => document.getElementById(id);
 const el = (h) => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstChild; };
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmt = (n) => (n === null || n === undefined || n === "") ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+const money = (n) => (n === null || n === undefined || n === "" || isNaN(Number(n))) ? "—" : Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const curSym = (c) => c === "USD" || !c ? "$" : c === "AED" ? "AED " : c + " ";
 // dates from the database are "YYYY-MM-DD" -> show "DD-MM-YYYY"
 const fmtDMY = (iso) => { if (!iso) return "—"; const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}-${m[2]}-${m[1]}` : iso; };
 
@@ -318,8 +320,20 @@ async function runIncoming() {
   $("incMeta").textContent = `${data.length} line${data.length === 1 ? "" : "s"}${data.length === 1000 ? " (first 1000)" : ""}`;
   if (!data.length) { $("incTable").innerHTML = emptyState("No matching lines", "Try clearing the filters."); return; }
   const showActions = state.canUpload;
+  const sym = curSym((data.find((r) => r.currency) || {}).currency);
+  const sumFob = data.reduce((a, r) => a + (Number(r.unit_cost) || 0), 0);
+  const sumVal = data.reduce((a, r) => a + (Number(r.total_value) || 0), 0);
+  const headers = ["", "SKU", "Product", "Brand", "Region", "PO", "Qty", "FOB", "Total value", "ETA", "Factory", "Mode", "Remarks"];
+  const aligns = ["", "", "", "", "", "c", "c", "r", "r", "c", "", "", ""];
+  if (showActions) { headers.push("Actions"); aligns.push("r"); }
+  const restCols = showActions ? 5 : 4;
+  const foot =
+    `<td colspan="7" class="ftot-label">Totals · ${data.length} line${data.length === 1 ? "" : "s"}</td>` +
+    `<td class="ftot">${sym}${money(sumFob)}</td>` +
+    `<td class="ftot">${sym}${money(sumVal)}</td>` +
+    `<td colspan="${restCols}"></td>`;
   $("incTable").innerHTML = table(
-    ["", "SKU", "Product", "Brand", "Region", "PO", "Qty", "ETA", "Factory", "Mode", "Remarks", showActions ? "Actions" : ""],
+    headers,
     data.map((r, i) => [
       `<td>${thumb(i, r)}</td>`,
       `<td class="code">${esc(r.sku)}</td>`,
@@ -328,6 +342,8 @@ async function runIncoming() {
       `<td>${flag(r.region)}${esc(r.region || "")}</td>`,
       `<td class="code c">${esc(r.po_number)}</td>`,
       `<td class="code c">${fmt(r.ordered_quantity)}</td>`,
+      `<td class="code money">${r.unit_cost == null ? "—" : sym + money(r.unit_cost)}</td>`,
+      `<td class="code money">${r.total_value == null ? "—" : sym + money(r.total_value)}</td>`,
       `<td class="code c">${r.is_delayed ? `<span class="chip delay">${fmtDMY(r.eta || r.po_deadline)}</span>` : fmtDMY(r.eta || r.po_deadline)}</td>`,
       `<td>${factoryChip(r.factory_status)}</td>`,
       `<td>${modeChip(r.ship_mode)}</td>`,
@@ -340,8 +356,7 @@ async function runIncoming() {
            </td>`
         : "",
     ]),
-    { classes: data.map((r) => (r.is_delayed ? "delayed" : "")),
-      aligns: ["", "", "", "", "", "c", "c", "c", "", "", "", "r"] }
+    { classes: data.map((r) => (r.is_delayed ? "delayed" : "")), aligns, foot }
   );
 }
 function remCell(text) {
@@ -434,7 +449,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=10");
+    const { mapWorkbook } = await import("./mapping.js?v=11");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
@@ -522,10 +537,11 @@ function bindImageUpload() {
 
 
 function table(headers, rows, opts = {}) {
-  const { sticky = false, classes = [], aligns = [] } = opts;
+  const { sticky = false, classes = [], aligns = [], foot = null } = opts;
   const head = headers.map((h, i) => `<th${aligns[i] === "c" ? ' style="text-align:center"' : aligns[i] === "r" ? ' style="text-align:right"' : ""}>${esc(h)}</th>`).join("");
   const body = rows.map((cells, i) => `<tr class="${classes[i] || ""}">${cells.join("")}</tr>`).join("");
-  return `<div class="tablewrap" style="${sticky ? "max-height:360px" : ""}"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  const footer = foot ? `<tfoot><tr>${foot}</tr></tfoot>` : "";
+  return `<div class="tablewrap" style="${sticky ? "max-height:360px" : ""}"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${footer}</table></div>`;
 }
 function emptyState(t, s) { return `<div class="empty"><b>${esc(t)}</b>${esc(s)}</div>`; }
 function banner(kind, html) { return `<div class="banner ${kind}">${html}</div>`; }
