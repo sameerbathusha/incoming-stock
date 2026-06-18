@@ -6,7 +6,7 @@
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { mapWorkbook } from "./mapping.js";
+// mapping.js is imported lazily inside readFile() so an issue there can never block sign-in.
 
 const cfg = window.APP_CONFIG || {};
 if (!cfg.SUPABASE_URL || cfg.SUPABASE_URL.includes("YOUR-PROJECT")) {
@@ -66,29 +66,35 @@ sb.auth.onAuthStateChange((_e, s) => { if (s) enterApp(); });
 (async () => { const { data } = await sb.auth.getSession(); if (data.session) enterApp(); })();
 
 async function enterApp() {
-  if (!$("app").classList.contains("hidden")) return;
-  const { data: u } = await sb.auth.getUser();
-  const { data: prof } = await sb.from("profiles").select("full_name, role, email").eq("id", u.user.id).maybeSingle();
-  state.profile = prof || { role: "sales", email: u.user.email };
-  state.canUpload = ["admin", "operations"].includes(state.profile.role);
-  $("whoEmail").textContent = state.profile.email || u.user.email;
-  $("whoRole").textContent = state.profile.role;
-  $("navUpload").classList.toggle("hidden", !state.canUpload);
-  $("navAdd").classList.toggle("hidden", !state.canUpload);
-  $("login").classList.add("hidden");
-  $("app").classList.remove("hidden");
-  go("dashboard");
+  try {
+    if (!$("app").classList.contains("hidden")) return;
+    const { data: u } = await sb.auth.getUser();
+    if (!u || !u.user) return;
+    let prof = null;
+    try { prof = (await sb.from("profiles").select("full_name, role, email").eq("id", u.user.id).maybeSingle()).data; } catch (_) {}
+    state.profile = prof || { role: "sales", email: u.user.email };
+    state.canUpload = ["admin", "operations"].includes(state.profile.role);
+    const setText = (id, t) => { const e = $(id); if (e) e.textContent = t; };
+    setText("whoEmail", state.profile.email || u.user.email);
+    setText("whoRole", state.profile.role);
+    const nu = $("navUpload"); if (nu) nu.classList.toggle("hidden", !state.canUpload);
+    $("login").classList.add("hidden");
+    $("app").classList.remove("hidden");
+    go("dashboard");
+  } catch (err) {
+    const m = $("loginMsg");
+    if (m) { m.className = "msg err"; m.textContent = "Signed in, but the page needs a hard refresh to finish loading."; }
+  }
 }
 
 // ---- nav -------------------------------------------------------------------
 document.querySelectorAll(".nav button[data-view]").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
 function go(view) {
   document.querySelectorAll(".nav button[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
-  ["dashboard", "incoming", "upload", "add"].forEach((v) => $("view-" + v).classList.toggle("hidden", v !== view));
+  ["dashboard", "incoming", "upload"].forEach((v) => { const el = $("view-" + v); if (el) el.classList.toggle("hidden", v !== view); });
   if (view === "dashboard") loadDashboard();
   if (view === "incoming") loadIncoming();
   if (view === "upload") loadUpload();
-  if (view === "add") loadAdd();
 }
 
 // ---- dashboard -------------------------------------------------------------
@@ -349,6 +355,7 @@ async function loadUpload() {
     $("upMapping").innerHTML = upState.mappings.map((m, i) => `<option value="${i}">${esc(m.name)}</option>`).join("");
     $("upRead").addEventListener("click", readFile);
   }
+  setupAddForm();
   loadUploadLog();
 }
 async function readFile() {
@@ -359,6 +366,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
+    const { mapWorkbook } = await import("./mapping.js?v=9");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
@@ -393,16 +401,15 @@ async function loadUploadLog() {
 
 // ---- manual add ------------------------------------------------------------
 let addInit = false;
-async function loadAdd() {
-  if (!addInit) {
-    addInit = true;
-    const [{ data: brands }, { data: regions }] = await Promise.all([
-      sb.from("brands").select("name").order("name"), sb.from("regions").select("name").order("name"),
-    ]);
-    $("adBrand").innerHTML = '<option value="">Select…</option>' + (brands || []).map((b) => `<option>${esc(b.name)}</option>`).join("");
-    $("adRegion").innerHTML = '<option value="">Select…</option>' + (regions || []).map((r) => `<option>${esc(r.name)}</option>`).join("");
-    $("adSave").addEventListener("click", saveAdd);
-  }
+async function setupAddForm() {
+  if (addInit || !$("adBrand")) return;
+  addInit = true;
+  const [{ data: brands }, { data: regions }] = await Promise.all([
+    sb.from("brands").select("name").order("name"), sb.from("regions").select("name").order("name"),
+  ]);
+  $("adBrand").innerHTML = '<option value="">Select…</option>' + (brands || []).map((b) => `<option>${esc(b.name)}</option>`).join("");
+  $("adRegion").innerHTML = '<option value="">Select…</option>' + (regions || []).map((r) => `<option>${esc(r.name)}</option>`).join("");
+  $("adSave").addEventListener("click", saveAdd);
 }
 async function saveAdd() {
   const v = (id) => $(id).value.trim();
