@@ -42,7 +42,20 @@
     box-shadow:var(--shadow)}
 
   /* ---------- login ---------- */
-  #login{min-height:100%;display:grid;place-items:center;padding:24px}
+  #login{min-height:100%;display:grid;place-items:center;padding:24px;position:relative;overflow:hidden}
+  .login-bg{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .login-bg span{position:absolute;border-radius:50%;filter:blur(70px);will-change:transform}
+  .login-bg .b1{width:44vmax;height:44vmax;left:-12vmax;top:-14vmax;opacity:.45;
+    background:radial-gradient(circle at 30% 30%, #2b4fd0, transparent 70%);animation:drift1 26s ease-in-out infinite alternate}
+  .login-bg .b2{width:38vmax;height:38vmax;right:-14vmax;top:8vmax;opacity:.5;
+    background:radial-gradient(circle at 50% 50%, #02168a, transparent 70%);animation:drift2 32s ease-in-out infinite alternate}
+  .login-bg .b3{width:32vmax;height:32vmax;left:18vmax;bottom:-16vmax;opacity:.3;
+    background:radial-gradient(circle at 50% 50%, #00AEEF, transparent 70%);animation:drift3 29s ease-in-out infinite alternate}
+  .login-card{position:relative;z-index:1}
+  @keyframes drift1{from{transform:translate(0,0) scale(1)}to{transform:translate(8vmax,6vmax) scale(1.15)}}
+  @keyframes drift2{from{transform:translate(0,0) scale(1)}to{transform:translate(-7vmax,5vmax) scale(1.1)}}
+  @keyframes drift3{from{transform:translate(0,0) scale(1)}to{transform:translate(6vmax,-6vmax) scale(1.2)}}
+  @media (prefers-reduced-motion: reduce){ .login-bg span{animation:none} }
   .login-card{width:100%;max-width:390px;border-radius:18px;padding:32px 30px}
   .brandmark{display:flex;align-items:center;gap:10px}
   .brandmark .dot{width:12px;height:12px;border-radius:3px;background:var(--ink);transform:rotate(45deg)}
@@ -236,6 +249,7 @@
 
   <!-- ===== LOGIN ===== -->
   <div id="login">
+    <div class="login-bg" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
     <div class="login-card glass">
       <div class="brandmark login-brand">
         <b class="sp">SPACE</b>
