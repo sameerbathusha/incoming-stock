@@ -10,7 +10,7 @@
 <style>
   :root{
     --ink:#16233a; --ink-2:#22344f; --text:#1b2330; --muted:#65718a;
-    --brand:#0a63b0; --brand-2:#0a7cc2;
+    --brand:#02168a; --brand-2:#0a2bb0;
     --amber:#b9751a; --amber-bg:rgba(216,150,40,.16); --red:#b23029; --red-bg:rgba(196,72,62,.15);
     --green:#2f7d5b; --green-bg:rgba(54,150,108,.16); --blue:#2b5f8e; --blue-bg:rgba(58,120,170,.15);
     --glass:rgba(255,255,255,.62); --glass-2:rgba(255,255,255,.78); --stroke:rgba(255,255,255,.65);
@@ -133,10 +133,22 @@
   .bdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
   .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:8px}
   @media(max-width:640px){.formgrid{grid-template-columns:1fr}}
-  .upbtn{position:absolute;bottom:-6px;right:-6px;width:18px;height:18px;border-radius:50%;
-    border:1px solid var(--stroke);background:var(--brand);color:#fff;font-size:11px;line-height:1;
-    display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25);padding:0}
-  .upbtn:hover{background:var(--brand-2)}
+  .upbtn{position:absolute;bottom:-4px;right:-4px;width:13px;height:13px;border-radius:50%;
+    border:1px solid #fff;background:rgba(2,22,138,.85);color:#fff;font-size:8px;line-height:1;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;opacity:.85}
+  .upbtn:hover{opacity:1}
+  td.actions{white-space:nowrap;text-align:right}
+  .act{border:0;background:transparent;cursor:pointer;font-size:14px;padding:3px 5px;border-radius:6px;opacity:.7;line-height:1}
+  .act:hover{opacity:1;background:rgba(2,22,138,.08)}
+  .act.new.on{color:#1f7a46;opacity:1}
+  .act.del:hover{background:var(--red-bg)}
+  .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(3px);
+    display:flex;align-items:center;justify-content:center;z-index:50;padding:18px}
+  .modal{width:100%;max-width:560px;max-height:90vh;overflow:auto;border-radius:16px;background:rgba(255,255,255,.96);
+    border:1px solid var(--stroke);box-shadow:0 20px 60px rgba(20,35,60,.25);padding:20px 22px}
+  .modal h3{margin:0 0 4px;font-size:18px}
+  .modal .ident{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:14px}
+  .modal .row2{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
   td.desc{min-width:240px;max-width:360px;white-space:normal;line-height:1.35}
   tr.delayed td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
   .chip{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;
@@ -355,9 +367,33 @@
   </div>
   <input type="file" id="imgFileInput" accept="image/*" class="hidden" />
 
+  <!-- Edit line modal -->
+  <div id="editModal" class="modal-bg hidden">
+    <div class="modal glass">
+      <h3>Edit line</h3>
+      <div class="ident" id="edIdent"></div>
+      <div class="formgrid">
+        <div class="field" style="grid-column:1/-1"><label>Product name</label><input id="edName" /></div>
+        <div class="field"><label>Barcode (EAN)</label><input id="edEan" /></div>
+        <div class="field"><label>Order quantity</label><input id="edQty" type="number" min="0" step="1" /></div>
+        <div class="field"><label>PO deadline / ETA</label><input id="edDeadline" type="date" /></div>
+        <div class="field"><label>Ship mode</label><select id="edMode"><option value="">—</option><option>DG</option><option>NON-DG</option></select></div>
+        <div class="field"><label>Factory stock status</label><select id="edFactory">
+          <option value="">—</option><option value="available">Available</option><option value="limited_stock">Limited</option>
+          <option value="out_of_stock">Out of stock</option><option value="discontinued">Discontinued</option>
+        </select></div>
+        <div class="field" style="grid-column:1/-1"><label>Remarks</label><input id="edRemarks" /></div>
+      </div>
+      <div class="row2">
+        <button class="btn ghost" id="edCancel">Cancel</button>
+        <button class="btn" id="edSave">Save changes</button>
+      </div>
+    </div>
+  </div>
+
   <script src="config.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=9"></script>
+  <script type="module" src="app.js?v=10"></script>
 </body>
 </html>
