@@ -303,7 +303,7 @@ function startRemarkEdit(cell) {
   input.addEventListener("blur", save);
 }
 function incomingQuery() {
-  let q = sb.from("v_incoming_stock").select("id,sku,product_name,ean,hs_code,brand,region,po_number,voucher_type,ship_mode,ordered_quantity,pending_quantity,unit_cost,total_value,currency,po_deadline,eta,factory_status,shipment_status,is_delayed,is_new,remarks,image_url").order("eta", { nullsFirst: false });
+  let q = sb.from("v_incoming_stock").select("id,sku,product_name,ean,hs_code,brand,region,po_number,voucher_type,ship_mode,ordered_quantity,pending_quantity,unit_cost,total_value,currency,po_deadline,eta,factory_status,shipment_status,is_delayed,is_new,remarks,image_url").order("po_number", { ascending: false });
   const term = $("incSearch").value.trim();
   if (term) { const t = term.replace(/[,%]/g, " "); q = q.or(`sku.ilike.%${t}%,product_name.ilike.%${t}%,po_number.ilike.%${t}%,ean.ilike.%${t}%`); }
   if ($("incBrand").value) q = q.eq("brand", $("incBrand").value);
@@ -323,10 +323,10 @@ async function runIncoming() {
   const sym = curSym((data.find((r) => r.currency) || {}).currency);
   const sumFob = data.reduce((a, r) => a + (Number(r.unit_cost) || 0), 0);
   const sumVal = data.reduce((a, r) => a + (Number(r.total_value) || 0), 0);
-  const headers = ["", "SKU", "Product", "Brand", "Region", "PO", "Qty", "FOB", "Total value", "ETA", "Factory", "Mode", "Remarks"];
-  const aligns = ["", "", "", "", "", "c", "c", "r", "r", "c", "", "", ""];
+  const headers = ["", "SKU", "Product", "Brand", "Region", "PO", "Qty", "FOB", "Total value", "ETA", "Mode", "Remarks"];
+  const aligns = ["", "", "", "", "", "c", "c", "r", "r", "c", "", ""];
   if (showActions) { headers.push("Actions"); aligns.push("r"); }
-  const restCols = showActions ? 5 : 4;
+  const restCols = showActions ? 4 : 3;
   const foot =
     `<td colspan="7" class="ftot-label">Totals · ${data.length} line${data.length === 1 ? "" : "s"}</td>` +
     `<td class="ftot">${sym}${money(sumFob)}</td>` +
@@ -345,7 +345,6 @@ async function runIncoming() {
       `<td class="code money">${r.unit_cost == null ? "—" : sym + money(r.unit_cost)}</td>`,
       `<td class="code money">${r.total_value == null ? "—" : sym + money(r.total_value)}</td>`,
       `<td class="code c">${r.is_delayed ? `<span class="chip delay">${fmtDMY(r.eta || r.po_deadline)}</span>` : fmtDMY(r.eta || r.po_deadline)}</td>`,
-      `<td>${factoryChip(r.factory_status)}</td>`,
       `<td>${modeChip(r.ship_mode)}</td>`,
       `<td class="remcell" data-id="${r.id}">${remCell(r.remarks)}</td>`,
       showActions
@@ -449,7 +448,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=11");
+    const { mapWorkbook } = await import("./mapping.js?v=12");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
@@ -468,7 +467,7 @@ async function doImport() {
   const { data, error } = await sb.rpc("app_import_rows", { p_file_name: upState.parsed.fileName, p_rows: upState.parsed.rows });
   btn.disabled = false; btn.textContent = "Import again";
   if (error) { res.innerHTML = banner("err", error.message); return; }
-  res.innerHTML = banner("ok", `Done — <b>${data.created}</b> new, <b>${data.updated}</b> updated, <b>${data.unchanged}</b> unchanged of <b>${data.total}</b> rows.`);
+  res.innerHTML = banner("ok", `Done — <b>${data.created}</b> new, <b>${data.updated}</b> updated, <b>${data.unchanged}</b> unchanged${data.removed ? `, <b>${data.removed}</b> removed (no longer in sheet)` : ""} of <b>${data.total}</b> rows.`);
   loadUploadLog();
 }
 async function loadUploadLog() {
