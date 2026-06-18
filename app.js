@@ -303,7 +303,7 @@ function startRemarkEdit(cell) {
   input.addEventListener("blur", save);
 }
 function incomingQuery() {
-  let q = sb.from("v_incoming_stock").select("id,sku,product_name,ean,hs_code,brand,region,po_number,voucher_type,ship_mode,ordered_quantity,pending_quantity,unit_cost,total_value,currency,po_deadline,eta,factory_status,shipment_status,is_delayed,is_new,remarks,image_url").order("po_number", { ascending: false });
+  let q = sb.from("v_incoming_stock").select("id,sku,product_name,ean,hs_code,brand,region,po_number,voucher_type,ship_mode,ordered_quantity,pending_quantity,unit_cost,total_value,currency,po_deadline,eta,order_date,factory_status,shipment_status,is_delayed,is_new,remarks,image_url").order("order_date", { ascending: false, nullsFirst: false }).order("po_number", { ascending: false });
   const term = $("incSearch").value.trim();
   if (term) { const t = term.replace(/[,%]/g, " "); q = q.or(`sku.ilike.%${t}%,product_name.ilike.%${t}%,po_number.ilike.%${t}%,ean.ilike.%${t}%`); }
   if ($("incBrand").value) q = q.eq("brand", $("incBrand").value);
@@ -448,7 +448,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=12");
+    const { mapWorkbook } = await import("./mapping.js?v=13");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
