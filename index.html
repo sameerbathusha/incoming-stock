@@ -44,18 +44,21 @@
   /* ---------- login ---------- */
   #login{min-height:100%;display:grid;place-items:center;padding:24px;position:relative;overflow:hidden}
   .login-bg{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-  .login-bg span{position:absolute;border-radius:50%;filter:blur(70px);will-change:transform}
-  .login-bg .b1{width:44vmax;height:44vmax;left:-12vmax;top:-14vmax;opacity:.45;
-    background:radial-gradient(circle at 30% 30%, #2b4fd0, transparent 70%);animation:drift1 26s ease-in-out infinite alternate}
-  .login-bg .b2{width:38vmax;height:38vmax;right:-14vmax;top:8vmax;opacity:.5;
-    background:radial-gradient(circle at 50% 50%, #02168a, transparent 70%);animation:drift2 32s ease-in-out infinite alternate}
-  .login-bg .b3{width:32vmax;height:32vmax;left:18vmax;bottom:-16vmax;opacity:.3;
-    background:radial-gradient(circle at 50% 50%, #00AEEF, transparent 70%);animation:drift3 29s ease-in-out infinite alternate}
+  .login-bg .scene{position:absolute;inset:0;width:100%;height:100%}
   .login-card{position:relative;z-index:1}
-  @keyframes drift1{from{transform:translate(0,0) scale(1)}to{transform:translate(8vmax,6vmax) scale(1.15)}}
-  @keyframes drift2{from{transform:translate(0,0) scale(1)}to{transform:translate(-7vmax,5vmax) scale(1.1)}}
-  @keyframes drift3{from{transform:translate(0,0) scale(1)}to{transform:translate(6vmax,-6vmax) scale(1.2)}}
-  @media (prefers-reduced-motion: reduce){ .login-bg span{animation:none} }
+  .plane{animation:fly 26s linear infinite}
+  .cloud{animation:cloudDrift 60s linear infinite}
+  .cloud.c2{animation-duration:90s}
+  .ship-track{animation:sail 70s linear infinite}
+  .ship-bob{transform-box:fill-box;transform-origin:center;animation:bob 5.5s ease-in-out infinite}
+  .wave{transform-box:fill-box;animation:waveShift 7s ease-in-out infinite alternate}
+  .wave.w2{animation-duration:9s;animation-direction:alternate-reverse}
+  @keyframes fly{0%{transform:translate(-260px,0)}50%{transform:translate(640px,-12px)}100%{transform:translate(1500px,0)}}
+  @keyframes sail{0%{transform:translateX(-780px)}100%{transform:translateX(920px)}}
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-8px) rotate(1.2deg)}}
+  @keyframes cloudDrift{0%{transform:translateX(-220px)}100%{transform:translateX(1320px)}}
+  @keyframes waveShift{from{transform:translateX(-30px)}to{transform:translateX(30px)}}
+  @media (prefers-reduced-motion: reduce){ .plane,.cloud,.ship-track,.ship-bob,.wave{animation:none} }
   .login-card{width:100%;max-width:390px;border-radius:18px;padding:32px 30px}
   .brandmark{display:flex;align-items:center;gap:10px}
   .brandmark .dot{width:12px;height:12px;border-radius:3px;background:var(--ink);transform:rotate(45deg)}
@@ -249,7 +252,45 @@
 
   <!-- ===== LOGIN ===== -->
   <div id="login">
-    <div class="login-bg" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
+    <div class="login-bg" aria-hidden="true">
+      <svg class="scene" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef4fc"/><stop offset="1" stop-color="#dbe8f7"/></linearGradient>
+          <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f7dc4"/><stop offset="1" stop-color="#163f74"/></linearGradient>
+        </defs>
+        <rect x="0" y="0" width="1200" height="820" fill="url(#sky)"/>
+        <circle cx="1015" cy="150" r="70" fill="#fff6e3" opacity="0.85"/>
+        <rect x="0" y="505" width="1200" height="320" fill="url(#sea)"/>
+        <g class="cloud c1" fill="#ffffff" opacity="0.9"><ellipse cx="200" cy="150" rx="70" ry="26"/><ellipse cx="250" cy="136" rx="48" ry="24"/><ellipse cx="150" cy="140" rx="44" ry="22"/></g>
+        <g class="cloud c2" fill="#ffffff" opacity="0.7"><ellipse cx="780" cy="225" rx="58" ry="22"/><ellipse cx="820" cy="213" rx="40" ry="20"/><ellipse cx="745" cy="215" rx="38" ry="18"/></g>
+        <g class="plane" fill="#51618a">
+          <path d="M10 166 L98 162 L124 172 L98 182 L10 178 Z"/>
+          <path d="M44 164 L72 142 L82 144 L66 166 Z"/>
+          <path d="M44 180 L72 202 L82 200 L66 180 Z"/>
+          <path d="M14 164 L2 150 L11 150 L24 164 Z"/>
+        </g>
+        <g class="waves" stroke="#ffffff" stroke-opacity="0.30" fill="none" stroke-width="3" stroke-linecap="round">
+          <path class="wave w1" d="M-220 560 q 55 -12 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0"/>
+          <path class="wave w2" d="M-220 612 q 55 -12 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0 t 110 0"/>
+        </g>
+        <g class="ship-track">
+          <g class="ship-bob">
+            <ellipse cx="560" cy="588" rx="170" ry="14" fill="#ffffff" opacity="0.18"/>
+            <!-- containers -->
+            <g>
+              <rect x="452" y="520" width="40" height="18" rx="2" fill="#00A651"/><rect x="494" y="520" width="40" height="18" rx="2" fill="#00AEEF"/><rect x="536" y="520" width="40" height="18" rx="2" fill="#e0a83e"/><rect x="578" y="520" width="40" height="18" rx="2" fill="#1a1a1a"/><rect x="620" y="520" width="40" height="18" rx="2" fill="#00AEEF"/>
+              <rect x="473" y="501" width="40" height="18" rx="2" fill="#1a1a1a"/><rect x="515" y="501" width="40" height="18" rx="2" fill="#00A651"/><rect x="557" y="501" width="40" height="18" rx="2" fill="#c0392b"/><rect x="599" y="501" width="40" height="18" rx="2" fill="#00AEEF"/>
+              <rect x="515" y="482" width="40" height="18" rx="2" fill="#00AEEF"/><rect x="557" y="482" width="40" height="18" rx="2" fill="#e0a83e"/>
+            </g>
+            <!-- bridge -->
+            <rect x="430" y="498" width="22" height="42" rx="2" fill="#f3f5f8"/><rect x="435" y="506" width="12" height="6" fill="#2b3a55"/><rect x="435" y="516" width="12" height="6" fill="#2b3a55"/>
+            <!-- hull -->
+            <path d="M430 540 L690 540 L662 576 L470 576 Z" fill="#02168a"/>
+            <rect x="430" y="540" width="260" height="7" fill="#c0392b"/>
+          </g>
+        </g>
+      </svg>
+    </div>
     <div class="login-card glass">
       <div class="brandmark login-brand">
         <b class="sp">SPACE</b>
@@ -412,6 +453,6 @@
   <script src="config.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=11"></script>
+  <script type="module" src="app.js?v=12"></script>
 </body>
 </html>
