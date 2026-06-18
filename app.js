@@ -448,7 +448,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=13");
+    const { mapWorkbook } = await import("./mapping.js?v=14");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
