@@ -33,6 +33,14 @@ function cellToString(val) {
 // return null if it can't be understood (better a blank date than a failed
 // upload).
 function coerceDate(val) {
+  // Excel serial date number (e.g. 46143) -> calendar date. Range guards keep
+  // plain years/quantities from being misread as serials.
+  const serial = (typeof val === 'number') ? val
+    : (/^\d{5}(\.\d+)?$/.test(String(val ?? '').trim()) ? parseFloat(val) : NaN);
+  if (!isNaN(serial) && serial > 20000 && serial < 80000) {
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.round(serial) * 86400000);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  }
   const s = cellToString(val);
   if (s === null) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;                 // already ISO
@@ -82,6 +90,46 @@ function findColumn(headers, sourceHeader) {
   return idx;
 }
 
+// Detect the GCC region from a tab name, so any region tab (incl. future
+// Kuwait/Oman/Saudi) imports automatically without editing a template.
+// Tab-name spelling can vary ("ALAMAT QATAR WORKING", "BASE BAHRAIN WORKING").
+export function regionFromSheetName(name) {
+  const n = ' ' + String(name).toUpperCase().replace(/[^A-Z]+/g, ' ').trim() + ' ';
+  if (n.includes(' KUWAIT ')) return 'Kuwait';
+  if (n.includes(' BAHRAIN ')) return 'Bahrain';
+  if (n.includes(' QATAR ') || n.includes(' DOHA ')) return 'Qatar';
+  if (n.includes(' OMAN ') || n.includes(' MUSCAT ')) return 'Oman';
+  if (n.includes(' SAUDI ') || n.includes(' KSA ') || n.includes(' RIYADH ') || n.includes(' JEDDAH ') || n.includes(' DAMMAM ')) return 'Saudi Arabia';
+  if (n.includes(' UAE ') || n.includes(' DUBAI ') || n.includes(' ABU DHABI ')) return 'UAE';
+  // a brand's main/home list (no foreign-country word) is the UAE list
+  if (n.includes(' MASTER ') || n.includes(' PENDING ') || n.includes(' ITEM ') || n.includes(' ORDER ') || n.includes(' LIST ') || n.includes(' WORKING ')) return 'UAE';
+  return null; // unrecognized tab -> skip
+}
+
+// Purchase (we buy, SGPO) vs sales (customer order, SGSO); fall back by region.
+function voucherTypeFor(voucher, region) {
+  const s = String(voucher || '').toUpperCase();
+  if (s.startsWith('SGPO')) return 'purchase';
+  if (s.startsWith('SGSO')) return 'sales';
+  return region === 'UAE' ? 'purchase' : 'sales';
+}
+
+// Derive a brand from the uploaded file name when a template has no fixed brand
+// (the "Auto-detect" template). Keeps short codes upper (AT), title-cases the rest.
+export function brandFromFileName(fileName) {
+  if (!fileName) return null;
+  const base = String(fileName).split(/[\\/]/).pop().replace(/\.[a-z0-9]+$/i, '');
+  const stop = new Set(['PENDING', 'ORDER', 'ORDERS', 'LIST', 'ITEM', 'ITEMS', 'AS', 'OF', 'WORKING', 'REPORT', 'SHEET', 'UPDATED', 'FINAL', 'NEW']);
+  const parts = base.split(/[_\s.-]+/).filter(Boolean);
+  const take = [];
+  for (const p of parts) { if (stop.has(p.toUpperCase()) || /^\d+$/.test(p)) break; take.push(p); }
+  const b = (take.join(' ') || parts[0] || '').trim();
+  if (!b) return null;
+  return b.length <= 3
+    ? b.toUpperCase()
+    : b.split(' ').map((w) => (w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())).join(' ');
+}
+
 /**
  * @param {object} workbook  SheetJS workbook (from XLSX.read)
  * @param {object} mapping   a column_mappings.mapping config object
@@ -91,7 +139,7 @@ function findColumn(headers, sourceHeader) {
 // Recognize a region from a sheet/tab name, so new region tabs (Bahrain,
 // Kuwait, Oman, Saudi) are imported automatically without editing the template.
 
-export function mapWorkbook(workbook, mapping, XLSX) {
+export function mapWorkbook(workbook, mapping, XLSX, fileName) {
   const fields = mapping.fields || {};
   const sheetsCfg = mapping.sheets || {};
   const skipFirst = (mapping.skip_row_if_first_cell_matches || []).map((s) =>
@@ -100,13 +148,19 @@ export function mapWorkbook(workbook, mapping, XLSX) {
   const headerToken = normalizeHeader(mapping.header_row_contains || 'voucher');
   const defaults = mapping.defaults || {};
   const statusMap = mapping.status_normalization || {};
+  const brand = mapping.brand || brandFromFileName(fileName);
 
   const rows = [];
-  const report = { sheetsSeen: workbook.SheetNames, sheetsUsed: [], skipped: 0, perSheet: {} };
+  const report = { sheetsSeen: workbook.SheetNames, sheetsUsed: [], skipped: 0, perSheet: {}, brand, regions: [] };
 
   for (const sheetName of workbook.SheetNames) {
-    const cfg = sheetsCfg[sheetName];
-    if (!cfg) continue; // only import tabs explicitly defined for this brand's template
+    // explicit tab config wins; otherwise auto-detect the region from the name
+    let cfg = sheetsCfg[sheetName];
+    if (!cfg) {
+      const region = regionFromSheetName(sheetName);
+      if (!region) continue; // not a recognizable data tab -> skip
+      cfg = { region };
+    }
     report.sheetsUsed.push(sheetName);
 
     const ws = workbook.Sheets[sheetName];
@@ -143,10 +197,11 @@ export function mapWorkbook(workbook, mapping, XLSX) {
       if (skipFirst.includes(String(row[0] ?? '').toLowerCase())) continue;
 
       const obj = {
-        brand: mapping.brand || null,
+        brand: brand || null,
         region: cfg.region || null,
-        voucher_type: cfg.voucher_type || null,
+        voucher_type: cfg.voucher_type || voucherTypeFor(voucher, cfg.region),
       };
+      if (cfg.region && !report.regions.includes(cfg.region)) report.regions.push(cfg.region);
       for (const canon of Object.keys(fieldCol)) {
         const val = DATE_FIELDS.has(canon) ? coerceDate(get(canon)) : cellToString(get(canon));
         if (val !== null) obj[canon] = val;
