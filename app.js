@@ -433,7 +433,11 @@ let upState = { mappings: [], parsed: null };
 async function loadUpload() {
   if (!upState.mappings.length) {
     const { data } = await sb.from("column_mappings").select("id,name,mapping").order("name");
-    upState.mappings = data || [];
+    const maps = (data || []).slice();
+    // Make "Auto-detect" the first option so it's the default for every upload.
+    const ai = maps.findIndex((m) => /^auto-detect/i.test(m.name || ""));
+    if (ai > 0) maps.unshift(maps.splice(ai, 1)[0]);
+    upState.mappings = maps;
     $("upMapping").innerHTML = upState.mappings.map((m, i) => `<option value="${i}">${esc(m.name)}</option>`).join("");
     $("upRead").addEventListener("click", readFile);
   }
@@ -448,16 +452,16 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=14");
-    const { rows, report } = mapWorkbook(wb, mapping, XLSX);
+    const { mapWorkbook } = await import("./mapping.js?v=16");
+    const { rows, report } = mapWorkbook(wb, mapping, XLSX, f.name);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
-      prev.innerHTML = banner("warn", `No rows found. Template expects sheet(s): <b>${esc(Object.keys(mapping.sheets || {}).join(", "))}</b>. This file has: <b>${esc(report.sheetsSeen.join(", "))}</b>.`) + `<div class="note">If the sheet names differ, tell me and I’ll adjust the template.</div>`;
+      prev.innerHTML = banner("warn", `No rows found in this file. Tabs detected: <b>${esc(report.sheetsSeen.join(", "))}</b>.`) + `<div class="note">Make sure the file has the usual columns (Voucher, Code, Name…). If a tab still won't import, tell me its exact name.</div>`;
       return;
     }
     const per = Object.entries(report.perSheet).map(([s, n]) => `${esc(s)}: <b>${n}</b>`).join(" &nbsp;·&nbsp; ");
     const oos = rows.filter((r) => r.factory_status === "out_of_stock").length;
-    prev.innerHTML = `<div class="stat-row"><div class="s"><b>${rows.length}</b>rows ready</div><div class="s"><b>${oos}</b>out of stock</div></div><div class="note">From — ${per}</div><button class="btn full" id="upImport" style="margin-top:14px">Import ${rows.length} rows</button><div id="upResult"></div>`;
+    prev.innerHTML = `<div class="stat-row"><div class="s"><b>${rows.length}</b>rows ready</div><div class="s"><b>${esc(report.brand || "?")}</b>brand</div><div class="s"><b>${esc((report.regions || []).join(", ") || "?")}</b>regions</div></div><div class="note">From — ${per}</div><button class="btn full" id="upImport" style="margin-top:14px">Import ${rows.length} rows (replaces current ${esc(report.brand || "")} data)</button><div id="upResult"></div>`;
     $("upImport").addEventListener("click", doImport);
   } catch (e) { prev.innerHTML = banner("err", "Could not read this file: " + esc(e.message)); }
 }
