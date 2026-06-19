@@ -121,12 +121,13 @@ const regionRank = (r) => (r in REGION_ORDER ? REGION_ORDER[r] : 99);
 
 // ---- dashboard -------------------------------------------------------------
 async function loadDashboard() {
-  const [{ data: k }, { data: oos }, { data: brand }, { data: eta }, { data: delayed }] = await Promise.all([
+  const [{ data: k }, { data: oos }, { data: brand }, { data: eta }, { data: delayed }, { data: region }] = await Promise.all([
     sb.from("v_dashboard_kpis").select("*").maybeSingle(),
     sb.from("v_factory_out_of_stock").select("sku,product_name,brand,region"),
     sb.from("v_incoming_by_brand").select("brand,quantity,lines"),
     sb.from("v_eta_buckets").select("bucket"),
     sb.from("v_incoming_stock").select("sku,product_name,brand,region,po_number,eta,po_deadline,is_new").eq("is_delayed", true).order("eta", { nullsFirst: true }).limit(40),
+    sb.from("v_incoming_by_region").select("region,quantity,lines"),
   ]);
   const cards = [
     ["Total incoming", k?.total_incoming_qty, ""], ["Open POs", k?.open_purchase_orders, ""],
@@ -151,7 +152,21 @@ async function loadDashboard() {
       `<td>${brandCell(r.brand)}</td>`, `<td>${flag(r.region)}${esc(r.region || "")}</td>`,
     ]), { sticky: true }) : emptyState("Nothing out of stock", "No factory shortages right now.");
 
-  drawEtaChart(eta || []); drawBrandChart(brand || []);
+  drawEtaChart(eta || []); drawBrandChart(brand || []); drawRegionChart(region || []);
+}
+function drawRegionChart(rows) {
+  const order = ["UAE", "Qatar", "Bahrain", "Kuwait", "Oman", "Saudi Arabia"];
+  const sorted = (rows || []).slice().sort((a, b) => regionRank(a.region) - regionRank(b.region));
+  const labels = sorted.map((r) => r.region || "—");
+  const values = sorted.map((r) => Number(r.quantity || 0));
+  const palette = { UAE: "#02168a", Qatar: "#7a1f4b", Bahrain: "#b9751a", Kuwait: "#2f7d5b", Oman: "#3a78ad", "Saudi Arabia": "#5b6577" };
+  chart("regionChart", "bar", {
+    labels,
+    datasets: [{ data: values, backgroundColor: labels.map((l) => palette[l] || "#9aa3b2"), borderRadius: 6 }],
+  }, {
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.label}: ${c.raw.toLocaleString()} units` } } },
+    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+  });
 }
 function drawEtaChart(rows) {
   const order = ["delayed", "this_week", "next_week", "this_month", "later"];
@@ -201,7 +216,7 @@ async function loadIncoming() {
     ]);
     (brands || []).forEach((b) => $("incBrand").appendChild(el(`<option>${esc(b.name)}</option>`)));
     (regions || []).slice().sort((a, b) => regionRank(a.name) - regionRank(b.name)).forEach((r) => $("incRegion").appendChild(el(`<option>${esc(r.name)}</option>`)));
-    ["incSearch", "incBrand", "incRegion", "incFactory", "incMode", "incDelayed"].forEach((id) => $(id).addEventListener("input", debounce(runIncoming, 250)));
+    ["incSearch", "incBrand", "incRegion", "incFactory", "incMode", "incDelayed", "incFrom", "incTo"].forEach((id) => { const e = $(id); if (e) e.addEventListener("input", debounce(runIncoming, 250)); });
     $("incExportView").addEventListener("click", () => exportRows(lastRows, "incoming-view"));
     $("incExportAll").addEventListener("click", exportAll);
     $("incFetchImg").addEventListener("click", fetchImages);
@@ -322,7 +337,7 @@ function startRemarkEdit(cell) {
   input.addEventListener("blur", save);
 }
 function incomingQuery() {
-  let q = sb.from("v_incoming_stock").select("id,sku,product_name,ean,hs_code,brand,region,po_number,voucher_type,ship_mode,ordered_quantity,pending_quantity,unit_cost,total_value,currency,po_deadline,eta,order_date,factory_status,shipment_status,is_delayed,is_new,remarks,image_url").order("order_date", { ascending: false, nullsFirst: false }).order("po_number", { ascending: false });
+  let q = sb.from("v_incoming_stock").select("id,sku,product_name,ean,hs_code,brand,region,po_number,voucher_type,ship_mode,ordered_quantity,pending_quantity,unit_cost,total_value,currency,po_deadline,eta,order_date,factory_status,shipment_status,is_delayed,is_new,remarks,image_url,src_seq").order("brand", { ascending: true }).order("src_seq", { ascending: true, nullsFirst: false });
   const term = $("incSearch").value.trim();
   if (term) { const t = term.replace(/[,%]/g, " "); q = q.or(`sku.ilike.%${t}%,product_name.ilike.%${t}%,po_number.ilike.%${t}%,ean.ilike.%${t}%`); }
   if ($("incBrand").value) q = q.eq("brand", $("incBrand").value);
@@ -330,12 +345,14 @@ function incomingQuery() {
   if ($("incFactory").value) q = q.eq("factory_status", $("incFactory").value);
   if ($("incMode").value) q = q.eq("ship_mode", $("incMode").value);
   if ($("incDelayed").checked) q = q.eq("is_delayed", true);
+  const df = $("incFrom") && $("incFrom").value, dt = $("incTo") && $("incTo").value;
+  if (df) q = q.gte("order_date", df);
+  if (dt) q = q.lte("order_date", dt);
   return q;
 }
 async function runIncoming() {
-  const { data, error } = await incomingQuery().limit(1000);
+  const { data, error } = await incomingQuery().limit(2000);
   if (error) { $("incTable").innerHTML = emptyState("Couldn’t load", error.message); return; }
-  data.sort((a, b) => regionRank(a.region) - regionRank(b.region)); // UAE on top
   lastRows = data;
   $("incMeta").textContent = `${data.length} line${data.length === 1 ? "" : "s"}${data.length === 1000 ? " (first 1000)" : ""}`;
   if (!data.length) { $("incTable").innerHTML = emptyState("No matching lines", "Try clearing the filters."); return; }
@@ -343,12 +360,12 @@ async function runIncoming() {
   const sym = curSym((data.find((r) => r.currency) || {}).currency);
   const sumFob = data.reduce((a, r) => a + (Number(r.unit_cost) || 0), 0);
   const sumVal = data.reduce((a, r) => a + (Number(r.total_value) || 0), 0);
-  const headers = ["", "SKU", "Product", "Brand", "Region", "PO", "Qty", "FOB", "Total value", "ETA", "Mode", "Remarks"];
-  const aligns = ["", "", "", "", "", "c", "c", "r", "r", "c", "", ""];
+  const headers = ["", "SKU", "Product", "Brand", "Region", "PO", "Ordered", "Qty", "FOB", "Total value", "ETA", "Mode", "Remarks"];
+  const aligns = ["", "", "", "", "", "c", "c", "c", "r", "r", "c", "", ""];
   if (showActions) { headers.push("Actions"); aligns.push("r"); }
   const restCols = showActions ? 4 : 3;
   const foot =
-    `<td colspan="7" class="ftot-label">Totals · ${data.length} line${data.length === 1 ? "" : "s"}</td>` +
+    `<td colspan="8" class="ftot-label">Totals · ${data.length} line${data.length === 1 ? "" : "s"}</td>` +
     `<td class="ftot">${sym}${money(sumFob)}</td>` +
     `<td class="ftot">${sym}${money(sumVal)}</td>` +
     `<td colspan="${restCols}"></td>`;
@@ -361,6 +378,7 @@ async function runIncoming() {
       `<td>${brandCell(r.brand)}</td>`,
       `<td>${flag(r.region)}${esc(r.region || "")}</td>`,
       `<td class="code c">${esc(r.po_number)}</td>`,
+      `<td class="code c">${fmtDMY(r.order_date)}</td>`,
       `<td class="code c">${fmt(r.ordered_quantity)}</td>`,
       `<td class="code money">${r.unit_cost == null ? "—" : sym + money(r.unit_cost)}</td>`,
       `<td class="code money">${r.total_value == null ? "—" : sym + money(r.total_value)}</td>`,
@@ -486,7 +504,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=18");
+    const { mapWorkbook } = await import("./mapping.js?v=19");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX, f.name);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
