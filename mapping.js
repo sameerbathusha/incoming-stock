@@ -230,6 +230,11 @@ export function mapWorkbook(workbook, mapping, XLSX, fileName) {
         if (nf !== undefined) obj.is_new = nf;
       }
 
+      // ship mode: anything not clearly DG becomes NON-DG automatically
+      const sm = String(obj.ship_mode || "").toUpperCase().replace(/[^A-Z]/g, "");
+      obj.ship_mode = (sm === "DG") ? "DG" : "NON-DG";
+
+      obj.seq = rows.length; // preserve the exact sheet order (tab order, then row order)
       rows.push(obj);
       count++;
     }
