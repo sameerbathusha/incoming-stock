@@ -441,6 +441,20 @@ async function loadUpload() {
     $("upMapping").innerHTML = upState.mappings.map((m, i) => `<option value="${i}">${esc(m.name)}</option>`).join("");
     $("upRead").addEventListener("click", readFile);
   }
+  const rb = $("upReset");
+  if (rb && !rb.dataset.wired) {
+    rb.dataset.wired = "1";
+    rb.addEventListener("click", async () => {
+      if (!confirm("This permanently deletes ALL incoming-stock lines for every brand and region. This cannot be undone. Continue?")) return;
+      rb.disabled = true; rb.innerHTML = '<span class="spin"></span> Resetting…';
+      const { data, error } = await sb.rpc("app_reset_all_lines");
+      rb.disabled = false; rb.textContent = "Factory reset — delete all lines";
+      const box = $("upResetResult");
+      if (error) { box.innerHTML = banner("err", error.message); return; }
+      box.innerHTML = banner("ok", `Done — <b>${data.deleted}</b> lines deleted. The lists are now empty; upload a fresh file to begin.`);
+      loadUploadLog();
+    });
+  }
   setupAddForm();
   loadUploadLog();
 }
@@ -452,7 +466,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=16");
+    const { mapWorkbook } = await import("./mapping.js?v=17");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX, f.name);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
