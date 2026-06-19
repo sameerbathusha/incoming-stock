@@ -96,8 +96,8 @@ function findColumn(headers, sourceHeader) {
 export function regionFromSheetName(name) {
   const n = ' ' + String(name).toUpperCase().replace(/[^A-Z]+/g, ' ').trim() + ' ';
   if (n.includes(' KUWAIT ')) return 'Kuwait';
-  if (n.includes(' BAHRAIN ')) return 'Bahrain';
-  if (n.includes(' QATAR ') || n.includes(' DOHA ')) return 'Qatar';
+  if (n.includes(' BAHRAIN ') || n.includes(' BASE ')) return 'Bahrain';   // Base = our Bahrain customer
+  if (n.includes(' QATAR ') || n.includes(' DOHA ') || n.includes(' ALAMAT ')) return 'Qatar'; // Alamat = our Qatar customer
   if (n.includes(' OMAN ') || n.includes(' MUSCAT ')) return 'Oman';
   if (n.includes(' SAUDI ') || n.includes(' KSA ') || n.includes(' RIYADH ') || n.includes(' JEDDAH ') || n.includes(' DAMMAM ')) return 'Saudi Arabia';
   if (n.includes(' UAE ') || n.includes(' DUBAI ') || n.includes(' ABU DHABI ')) return 'UAE';
