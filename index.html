@@ -378,7 +378,7 @@
 
       <!-- Upload -->
       <section id="view-upload" class="hidden">
-        <div class="page-head"><h2>Upload sheet</h2><span class="meta">Excel in, dashboard out</span></div>
+        <div class="page-head"><h2>Upload sheet</h2><span class="meta">Excel in, dashboard out · <span id="buildTag" style="opacity:.6">build v17</span></span></div>
         <div class="upgrid">
           <div class="panel glass">
             <h3>1 · Choose template &amp; file</h3>
@@ -421,6 +421,14 @@
           </div>
         </div>
         <div class="panel glass" style="margin-top:16px"><h3>Recent uploads</h3><div class="body" style="padding:0"><div id="upLog"></div></div></div>
+        <div class="panel glass" style="margin-top:16px;border:1px solid #b9112822">
+          <h3 style="color:#b91128">Danger zone</h3>
+          <div class="body">
+            <div class="note">Factory reset permanently deletes <b>every</b> incoming-stock line for all brands and regions, so the team can start fresh. Brands, products and templates are kept. This cannot be undone.</div>
+            <button class="btn" id="upReset" style="margin-top:12px;background:#b91128;border-color:#b91128">Factory reset — delete all lines</button>
+            <div id="upResetResult"></div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -453,6 +461,6 @@
   <script src="config.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=16"></script>
+  <script type="module" src="app.js?v=17"></script>
 </body>
 </html>
