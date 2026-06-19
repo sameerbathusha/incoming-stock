@@ -94,7 +94,9 @@ async function enterApp() {
 
 // ---- nav -------------------------------------------------------------------
 document.querySelectorAll(".nav button[data-view]").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
+let currentView = "dashboard";
 function go(view) {
+  currentView = view;
   try { localStorage.setItem("lastView", view); } catch (_) {}
   document.querySelectorAll(".nav button[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   ["dashboard", "incoming", "upload"].forEach((v) => { const el = $("view-" + v); if (el) el.classList.toggle("hidden", v !== view); });
@@ -102,6 +104,20 @@ function go(view) {
   if (view === "incoming") loadIncoming();
   if (view === "upload") loadUpload();
 }
+// Refresh button: reloads the current view's data WITHOUT a full page reload,
+// so it never bounces back to the login screen.
+function refreshCurrent() {
+  const btn = $("btnRefresh");
+  if (btn) { btn.disabled = true; const t = btn.textContent; btn.textContent = "↻ …"; setTimeout(() => { btn.disabled = false; btn.textContent = t; }, 600); }
+  if (currentView === "dashboard") loadDashboard();
+  else if (currentView === "incoming") loadIncoming();
+  else if (currentView === "upload") loadUpload();
+}
+{ const rb = $("btnRefresh"); if (rb) rb.addEventListener("click", refreshCurrent); }
+
+// Region display order — UAE always first.
+const REGION_ORDER = { "UAE": 0, "Qatar": 1, "Bahrain": 2, "Kuwait": 3, "Oman": 4, "Saudi Arabia": 5 };
+const regionRank = (r) => (r in REGION_ORDER ? REGION_ORDER[r] : 99);
 
 // ---- dashboard -------------------------------------------------------------
 async function loadDashboard() {
@@ -184,7 +200,7 @@ async function loadIncoming() {
       sb.from("brands").select("name").order("name"), sb.from("regions").select("name").order("name"),
     ]);
     (brands || []).forEach((b) => $("incBrand").appendChild(el(`<option>${esc(b.name)}</option>`)));
-    (regions || []).forEach((r) => $("incRegion").appendChild(el(`<option>${esc(r.name)}</option>`)));
+    (regions || []).slice().sort((a, b) => regionRank(a.name) - regionRank(b.name)).forEach((r) => $("incRegion").appendChild(el(`<option>${esc(r.name)}</option>`)));
     ["incSearch", "incBrand", "incRegion", "incFactory", "incMode", "incDelayed"].forEach((id) => $(id).addEventListener("input", debounce(runIncoming, 250)));
     $("incExportView").addEventListener("click", () => exportRows(lastRows, "incoming-view"));
     $("incExportAll").addEventListener("click", exportAll);
@@ -257,6 +273,7 @@ function openEditModal(id) {
   $("edMode").value = r.ship_mode || "";
   $("edFactory").value = r.factory_status || "";
   $("edRemarks").value = r.remarks || "";
+  { const en = $("edNew"); if (en) en.checked = !!r.is_new; }
   if (!editBound) {
     editBound = true;
     $("edCancel").addEventListener("click", closeEditModal);
@@ -276,6 +293,8 @@ async function saveEditModal() {
     p_name: $("edName").value, p_ean: $("edEan").value });
   btn.disabled = false; btn.textContent = "Save changes";
   if (error) { alert(error.message); return; }
+  const en = $("edNew");
+  if (en) { await sb.rpc("app_set_line_tags", { p_id: editId, p_is_new: en.checked }); }
   closeEditModal();
   runIncoming();
 }
@@ -316,6 +335,7 @@ function incomingQuery() {
 async function runIncoming() {
   const { data, error } = await incomingQuery().limit(1000);
   if (error) { $("incTable").innerHTML = emptyState("Couldn’t load", error.message); return; }
+  data.sort((a, b) => regionRank(a.region) - regionRank(b.region)); // UAE on top
   lastRows = data;
   $("incMeta").textContent = `${data.length} line${data.length === 1 ? "" : "s"}${data.length === 1000 ? " (first 1000)" : ""}`;
   if (!data.length) { $("incTable").innerHTML = emptyState("No matching lines", "Try clearing the filters."); return; }
@@ -466,7 +486,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=17");
+    const { mapWorkbook } = await import("./mapping.js?v=18");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX, f.name);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
