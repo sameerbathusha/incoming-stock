@@ -347,6 +347,9 @@
           </div>
           <div class="panel glass"><h3>Volume by brand</h3><div class="body"><canvas id="brandChart" height="200"></canvas></div></div>
         </div>
+        <div class="grid2">
+          <div class="panel glass"><h3>Volume by region</h3><div class="body"><canvas id="regionChart" height="200"></canvas></div></div>
+        </div>
       </section>
 
       <!-- Incoming -->
@@ -369,6 +372,7 @@
             <option value="NON-DG">Non-DG only</option>
           </select>
           <label class="checkline"><input type="checkbox" id="incDelayed" /> Delayed only</label>
+          <span class="datefilter" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#5b6577">Ordered <input type="date" id="incFrom" style="width:auto" /> to <input type="date" id="incTo" style="width:auto" /></span>
           <span class="grow"></span>
           <button class="btn ghost sm" id="incFetchImg">Get images</button>
           <button class="btn ghost sm" id="incExportView">Export view</button>
@@ -379,7 +383,7 @@
 
       <!-- Upload -->
       <section id="view-upload" class="hidden">
-        <div class="page-head"><h2>Upload sheet</h2><span class="meta">Excel in, dashboard out · <span id="buildTag" style="opacity:.6">build v18</span></span></div>
+        <div class="page-head"><h2>Upload sheet</h2><span class="meta">Excel in, dashboard out · <span id="buildTag" style="opacity:.6">build v19</span></span></div>
         <div class="upgrid">
           <div class="panel glass">
             <h3>1 · Choose template &amp; file</h3>
@@ -463,6 +467,6 @@
   <script src="config.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=18"></script>
+  <script type="module" src="app.js?v=19"></script>
 </body>
 </html>
