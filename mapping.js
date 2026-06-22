@@ -192,8 +192,16 @@ export function mapWorkbook(workbook, mapping, XLSX, fileName) {
 
       const voucher = cellToString(get('po_number'));
       const code = cellToString(get('sku'));
-      if (!voucher || !code) continue;          // need both identity fields
-      if (!hasDigit(voucher)) continue;          // skip title/total rows
+      const qty = cellToString(get('ordered_quantity'));
+      // A product row must have a product code (SKU). Total/title rows have none.
+      if (!code) continue;
+      // Drop obvious total/section rows: a code-less label, or a row whose only
+      // content is a region word with a number (e.g. "BAHRAIN  615").
+      if (/^(uae|qatar|bahrain|kuwait|oman|saudi|ksa|dubai|total|grand total)$/i.test(code.trim())) continue;
+      // If there's a voucher, it must look like a real voucher (has a digit);
+      // a code with no voucher is still imported (some sheets omit it on sub-rows).
+      if (voucher && !hasDigit(voucher)) continue;
+      if (!voucher && !qty) continue;            // no voucher and no qty -> not a real line
       if (skipFirst.includes(String(row[0] ?? '').toLowerCase())) continue;
 
       const obj = {
