@@ -101,9 +101,7 @@ export function regionFromSheetName(name) {
   if (n.includes(' OMAN ') || n.includes(' MUSCAT ')) return 'Oman';
   if (n.includes(' SAUDI ') || n.includes(' KSA ') || n.includes(' RIYADH ') || n.includes(' JEDDAH ') || n.includes(' DAMMAM ')) return 'Saudi Arabia';
   if (n.includes(' UAE ') || n.includes(' DUBAI ') || n.includes(' ABU DHABI ')) return 'UAE';
-  // a brand's main/home list (no foreign-country word) is the UAE list
-  if (n.includes(' MASTER ') || n.includes(' PENDING ') || n.includes(' ITEM ') || n.includes(' ORDER ') || n.includes(' LIST ') || n.includes(' WORKING ')) return 'UAE';
-  return null; // unrecognized tab -> skip
+  return null; // no region keyword -> caller decides (home list vs combined view)
 }
 
 // Purchase (we buy, SGPO) vs sales (customer order, SGSO); fall back by region.
@@ -141,7 +139,7 @@ export function brandFromFileName(fileName) {
 
 export function mapWorkbook(workbook, mapping, XLSX, fileName) {
   const fields = mapping.fields || {};
-  const sheetsCfg = mapping.sheets || {};
+  const sheetsCfg = {}; // region is auto-detected from tab names for every template
   const skipFirst = (mapping.skip_row_if_first_cell_matches || []).map((s) =>
     String(s).toLowerCase()
   );
@@ -151,14 +149,30 @@ export function mapWorkbook(workbook, mapping, XLSX, fileName) {
   const brand = mapping.brand || brandFromFileName(fileName);
 
   const rows = [];
-  const report = { sheetsSeen: workbook.SheetNames, sheetsUsed: [], skipped: 0, perSheet: {}, brand, regions: [] };
+  const report = { sheetsSeen: workbook.SheetNames, sheetsUsed: [], skipped: [], perSheet: {}, brand, regions: [] };
+
+  // Pre-pass: figure out each tab's region from its name. If the file has any
+  // explicit region tab (e.g. "UAE WORKING", "QATAR WORKING"), then a tab with
+  // NO region word is the combined/master view and must be skipped to avoid
+  // double-counting. If there are no explicit region tabs at all (e.g. Momax's
+  // single "MOMAX PENDING ITEM LIST"), the no-region main tab is the UAE list.
+  const sheetRegion = {};
+  let hasExplicitUAE = false;
+  for (const sheetName of workbook.SheetNames) {
+    const cfg = sheetsCfg[sheetName];
+    const reg = cfg ? cfg.region : regionFromSheetName(sheetName);
+    sheetRegion[sheetName] = reg;
+    if (reg === 'UAE') hasExplicitUAE = true;
+  }
 
   for (const sheetName of workbook.SheetNames) {
-    // explicit tab config wins; otherwise auto-detect the region from the name
     let cfg = sheetsCfg[sheetName];
     if (!cfg) {
-      const region = regionFromSheetName(sheetName);
-      if (!region) continue; // not a recognizable data tab -> skip
+      let region = sheetRegion[sheetName];
+      if (!region) {
+        if (hasExplicitUAE) { report.skipped.push(sheetName); continue; } // combined/master view -> skip
+        region = 'UAE'; // this no-region tab IS the UAE/home list (e.g. Momax)
+      }
       cfg = { region };
     }
     report.sheetsUsed.push(sheetName);
