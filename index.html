@@ -246,6 +246,15 @@
     .kpis{grid-template-columns:1fr 1fr;gap:8px}
     .topbar .brandmark .subttl{display:none}
   }
+.msel{position:relative;display:inline-block}
+.msel-btn{background:#fff;border:1px solid #d7deea;border-radius:10px;padding:9px 12px;font:inherit;font-size:13.5px;color:#1b2536;cursor:pointer;min-width:130px;text-align:left;white-space:nowrap}
+.msel-btn:after{content:"▾";float:right;opacity:.5;margin-left:8px}
+.msel-panel{position:absolute;z-index:40;top:calc(100% + 4px);left:0;min-width:190px;max-height:260px;overflow:auto;background:#fff;border:1px solid #d7deea;border-radius:10px;box-shadow:0 8px 24px rgba(20,30,60,.14);padding:6px}
+.msel-opt{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;font-size:13.5px;cursor:pointer}
+.msel-opt:hover{background:#f1f5fb}
+.msel-opt input{width:auto;margin:0}
+.msel-clear{display:block;width:100%;text-align:left;padding:7px 9px;border:0;background:none;color:#6b7689;font:inherit;font-size:12.5px;cursor:pointer;border-top:1px solid #eef2f8;margin-top:4px}
+.msel-clear:hover{color:#02168a}
 </style>
 </head>
 <body>
@@ -357,8 +366,8 @@
         <div class="page-head"><h2>Incoming stock</h2><span class="meta" id="incMeta"></span></div>
         <div class="toolbar">
           <input type="search" id="incSearch" placeholder="Search SKU, product, PO…" />
-          <select id="incBrand"><option value="">All brands</option></select>
-          <select id="incRegion"><option value="">All regions</option></select>
+          <div class="msel" id="msBrand"></div>
+          <div class="msel" id="msRegion"></div>
           <select id="incFactory">
             <option value="">Any stock status</option>
             <option value="out_of_stock">Out of stock</option>
@@ -383,7 +392,7 @@
 
       <!-- Upload -->
       <section id="view-upload" class="hidden">
-        <div class="page-head"><h2>Upload sheet</h2><span class="meta">Excel in, dashboard out · <span id="buildTag" style="opacity:.6">build v20</span></span></div>
+        <div class="page-head"><h2>Upload sheet</h2><span class="meta">Excel in, dashboard out · <span id="buildTag" style="opacity:.6">build v21</span></span></div>
         <div class="upgrid">
           <div class="panel glass">
             <h3>1 · Choose template &amp; file</h3>
@@ -464,9 +473,25 @@
     </div>
   </div>
 
+  <div id="imgModal" class="modal-bg hidden">
+    <div class="modal glass">
+      <h3>Set product image</h3>
+      <div class="ident" id="imgIdent"></div>
+      <div class="formgrid">
+        <div class="field" style="grid-column:1/-1"><label>Paste an image link (URL)</label><input id="imgUrlInput" placeholder="https://www.space.ae/web/image/product.product/…" /></div>
+        <div class="field" style="grid-column:1/-1"><span class="note">…or upload a picture from your device instead.</span></div>
+      </div>
+      <div class="row2">
+        <button class="btn ghost" id="imgChooseFile">Upload a file…</button>
+        <button class="btn" id="imgSaveLink">Save link</button>
+      </div>
+      <button class="btn ghost" id="imgCancel" style="margin-top:8px;width:100%">Cancel</button>
+    </div>
+  </div>
+
   <script src="config.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=20"></script>
+  <script type="module" src="app.js?v=21"></script>
 </body>
 </html>
