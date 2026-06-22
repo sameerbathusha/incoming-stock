@@ -217,9 +217,9 @@ async function loadIncoming() {
     const [{ data: brands }, { data: regions }] = await Promise.all([
       sb.from("brands").select("name").order("name"), sb.from("regions").select("name").order("name"),
     ]);
-    (brands || []).forEach((b) => $("incBrand").appendChild(el(`<option value="${esc(b.name)}">${esc(brandLabel(b.name))}</option>`)));
-    (regions || []).slice().sort((a, b) => regionRank(a.name) - regionRank(b.name)).forEach((r) => $("incRegion").appendChild(el(`<option>${esc(r.name)}</option>`)));
-    ["incSearch", "incBrand", "incRegion", "incFactory", "incMode", "incDelayed", "incFrom", "incTo"].forEach((id) => { const e = $(id); if (e) e.addEventListener("input", debounce(runIncoming, 250)); });
+    buildMultiSelect("msBrand", "All brands", (brands || []).map((b) => b.name), (v) => brandLabel(v), incSel.brand);
+    buildMultiSelect("msRegion", "All regions", (regions || []).slice().sort((a, b) => regionRank(a.name) - regionRank(b.name)).map((r) => r.name), (v) => v, incSel.region);
+    ["incSearch", "incFactory", "incMode", "incDelayed", "incFrom", "incTo"].forEach((id) => { const e = $(id); if (e) e.addEventListener("input", debounce(runIncoming, 250)); });
     $("incExportView").addEventListener("click", () => exportRows(lastRows, "incoming-view"));
     $("incExportAll").addEventListener("click", exportAll);
     $("incFetchImg").addEventListener("click", fetchImages);
@@ -238,7 +238,7 @@ async function onIncTableClick(e) {
   if (upb) {
     e.stopPropagation();
     pendingImgSku = upb.dataset.sku;
-    $("imgFileInput").click();
+    openImageModal(pendingImgSku);
     return;
   }
   const actNew = e.target.closest(".act.new");
@@ -339,12 +339,27 @@ function startRemarkEdit(cell) {
   });
   input.addEventListener("blur", save);
 }
+const incSel = { brand: new Set(), region: new Set() };
+function buildMultiSelect(hostId, allLabel, values, labelOf, selSet) {
+  const host = $(hostId);
+  if (!host) return;
+  selSet.clear();
+  host.innerHTML = `<button type="button" class="msel-btn">${allLabel}</button><div class="msel-panel hidden">${values.map((v) => `<label class="msel-opt"><input type="checkbox" value="${esc(v)}"> ${esc(labelOf(v))}</label>`).join("")}<button type="button" class="msel-clear">Clear</button></div>`;
+  const btn = host.querySelector(".msel-btn"), panel = host.querySelector(".msel-panel");
+  const sync = () => { const n = selSet.size; btn.textContent = n === 0 ? allLabel : (n === 1 ? labelOf([...selSet][0]) : n + " selected"); };
+  btn.addEventListener("click", (e) => { e.stopPropagation(); document.querySelectorAll(".msel-panel").forEach((p) => { if (p !== panel) p.classList.add("hidden"); }); panel.classList.toggle("hidden"); });
+  panel.addEventListener("change", (e) => { const cb = e.target; if (!cb.value) return; if (cb.checked) selSet.add(cb.value); else selSet.delete(cb.value); sync(); runIncoming(); });
+  host.querySelector(".msel-clear").addEventListener("click", () => { selSet.clear(); panel.querySelectorAll("input").forEach((i) => (i.checked = false)); sync(); panel.classList.add("hidden"); runIncoming(); });
+  document.addEventListener("click", (e) => { if (!host.contains(e.target)) panel.classList.add("hidden"); });
+  sync();
+}
+
 function incomingQuery() {
   let q = sb.from("v_incoming_stock").select("id,sku,product_name,ean,hs_code,brand,region,po_number,voucher_type,ship_mode,ordered_quantity,pending_quantity,unit_cost,total_value,currency,po_deadline,eta,order_date,factory_status,shipment_status,is_delayed,is_new,remarks,image_url,src_seq").order("brand", { ascending: true }).order("src_seq", { ascending: true, nullsFirst: false });
   const term = $("incSearch").value.trim();
   if (term) { const t = term.replace(/[,%]/g, " "); q = q.or(`sku.ilike.%${t}%,product_name.ilike.%${t}%,po_number.ilike.%${t}%,ean.ilike.%${t}%`); }
-  if ($("incBrand").value) q = q.eq("brand", $("incBrand").value);
-  if ($("incRegion").value) q = q.eq("region", $("incRegion").value);
+  if (incSel.brand.size) q = q.in("brand", [...incSel.brand]);
+  if (incSel.region.size) q = q.in("region", [...incSel.region]);
   if ($("incFactory").value) q = q.eq("factory_status", $("incFactory").value);
   if ($("incMode").value) q = q.eq("ship_mode", $("incMode").value);
   if ($("incDelayed").checked) q = q.eq("is_delayed", true);
@@ -508,7 +523,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=20");
+    const { mapWorkbook } = await import("./mapping.js?v=21");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX, f.name);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
@@ -516,8 +531,10 @@ async function readFile() {
       return;
     }
     const per = Object.entries(report.perSheet).map(([s, n]) => `${esc(s)}: <b>${n}</b>`).join(" &nbsp;·&nbsp; ");
+    const skippedNote = (report.skipped && report.skipped.length)
+      ? `<div class="note" style="color:#b9751a">Skipped combined view (its rows are counted in the region tabs): <b>${report.skipped.map(esc).join(", ")}</b></div>` : "";
     const oos = rows.filter((r) => r.factory_status === "out_of_stock").length;
-    prev.innerHTML = `<div class="stat-row"><div class="s"><b>${rows.length}</b>rows ready</div><div class="s"><b>${esc(brandLabel(report.brand) || "?")}</b>brand</div><div class="s"><b>${esc((report.regions || []).join(", ") || "?")}</b>regions</div></div><div class="note">From — ${per}</div><button class="btn full" id="upImport" style="margin-top:14px">Import ${rows.length} rows (replaces current ${esc(brandLabel(report.brand) || "")} data)</button><div id="upResult"></div>`;
+    prev.innerHTML = `<div class="stat-row"><div class="s"><b>${rows.length}</b>rows ready</div><div class="s"><b>${esc(brandLabel(report.brand) || "?")}</b>brand</div><div class="s"><b>${esc((report.regions || []).join(", ") || "?")}</b>regions</div></div><div class="note">From — ${per}</div>${skippedNote}<button class="btn full" id="upImport" style="margin-top:14px">Import ${rows.length} rows (replaces current ${esc(brandLabel(report.brand) || "")} data)</button><div id="upResult"></div>`;
     $("upImport").addEventListener("click", doImport);
   } catch (e) { prev.innerHTML = banner("err", "Could not read this file: " + esc(e.message)); }
 }
@@ -572,6 +589,31 @@ async function saveAdd() {
 
 // ---- manual image upload ---------------------------------------------------
 let pendingImgSku = null;
+function openImageModal(sku) {
+  const m = $("imgModal");
+  $("imgUrlInput").value = "";
+  $("imgIdent").textContent = sku;
+  m.classList.remove("hidden");
+  if (!m.dataset.bound) {
+    m.dataset.bound = "1";
+    m.addEventListener("click", (ev) => { if (ev.target.id === "imgModal") closeImageModal(); });
+    $("imgCancel").addEventListener("click", closeImageModal);
+    $("imgChooseFile").addEventListener("click", () => { closeImageModal(); $("imgFileInput").click(); });
+    $("imgSaveLink").addEventListener("click", async () => {
+      const url = $("imgUrlInput").value.trim();
+      const sku = pendingImgSku;
+      if (!url || !sku) return;
+      if (!/^https?:\/\//i.test(url)) { alert("Please paste a full link starting with http:// or https://"); return; }
+      const btn = $("imgSaveLink"); btn.disabled = true; btn.textContent = "Saving…";
+      const { error } = await sb.rpc("app_set_product_image", { p_sku: sku, p_url: url });
+      btn.disabled = false; btn.textContent = "Save link";
+      if (error) { alert("Couldn’t save the link: " + error.message); return; }
+      lastRows.forEach((r) => { if (r.sku === sku) r.image_url = url; });
+      closeImageModal(); runIncoming();
+    });
+  }
+}
+function closeImageModal() { $("imgModal").classList.add("hidden"); }
 function bindImageUpload() {
   const input = $("imgFileInput");
   if (!input || input.dataset.bound) return;
