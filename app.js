@@ -27,8 +27,11 @@ const fmtDMY = (iso) => { if (!iso) return "—"; const m = String(iso).match(/^
 
 const FLAGS = { "UAE": "🇦🇪", "Qatar": "🇶🇦", "Bahrain": "🇧🇭", "Kuwait": "🇰🇼", "Oman": "🇴🇲", "Saudi Arabia": "🇸🇦" };
 const flag = (region) => FLAGS[region] ? `<span class="flag">${FLAGS[region]}</span>` : "";
-const BRAND_TINT = { AT: "#00A651", Momax: "#00AEEF", Tangem: "#111111" };
+const BRAND_TINT = { AT: "#00A651", AmazingThing: "#00A651", Momax: "#00AEEF", Tangem: "#111111" };
 const brandColor = (b) => BRAND_TINT[b] || "#5a6b86";
+// AT is the AmazingThing brand — show the full name to users (data stays "AT").
+const BRAND_LABEL = { AT: "AmazingThing" };
+const brandLabel = (b) => BRAND_LABEL[b] || b || "—";
 
 const COMPANY_ID = "a0000000-0000-4000-8000-000000000001";
 let state = { profile: null, charts: {}, canUpload: false };
@@ -38,7 +41,7 @@ function brandCell(brand) {
   if (!brand) return "—";
   const c = brandColor(brand);
   const file = "logo-" + String(brand).toLowerCase().replace(/[^a-z0-9]/g, "") + ".png";
-  return `<span class="brandcell" style="color:${c}"><img class="blogo" src="${file}" alt="" onerror="this.style.display='none'"><span class="bdot" style="background:${c}"></span>${esc(brand)}</span>`;
+  return `<span class="brandcell" style="color:${c}"><img class="blogo" src="${file}" alt="" onerror="this.style.display='none'"><span class="bdot" style="background:${c}"></span>${esc(brandLabel(brand))}</span>`;
 }
 function thumb(i, row) {
   const tint = brandColor(row.brand);
@@ -178,7 +181,7 @@ function drawEtaChart(rows) {
     { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } });
 }
 function drawBrandChart(rows) {
-  const labels = rows.map((r) => r.brand || "—");
+  const labels = rows.map((r) => brandLabel(r.brand));
   const values = rows.map((r) => Number(r.quantity || 0));
   const colors = rows.map((r) => brandColor(r.brand));
   // inline plugin: print each slice's quantity on the arc
@@ -214,7 +217,7 @@ async function loadIncoming() {
     const [{ data: brands }, { data: regions }] = await Promise.all([
       sb.from("brands").select("name").order("name"), sb.from("regions").select("name").order("name"),
     ]);
-    (brands || []).forEach((b) => $("incBrand").appendChild(el(`<option>${esc(b.name)}</option>`)));
+    (brands || []).forEach((b) => $("incBrand").appendChild(el(`<option value="${esc(b.name)}">${esc(brandLabel(b.name))}</option>`)));
     (regions || []).slice().sort((a, b) => regionRank(a.name) - regionRank(b.name)).forEach((r) => $("incRegion").appendChild(el(`<option>${esc(r.name)}</option>`)));
     ["incSearch", "incBrand", "incRegion", "incFactory", "incMode", "incDelayed", "incFrom", "incTo"].forEach((id) => { const e = $(id); if (e) e.addEventListener("input", debounce(runIncoming, 250)); });
     $("incExportView").addEventListener("click", () => exportRows(lastRows, "incoming-view"));
@@ -358,15 +361,16 @@ async function runIncoming() {
   if (!data.length) { $("incTable").innerHTML = emptyState("No matching lines", "Try clearing the filters."); return; }
   const showActions = state.canUpload;
   const sym = curSym((data.find((r) => r.currency) || {}).currency);
-  const sumFob = data.reduce((a, r) => a + (Number(r.unit_cost) || 0), 0);
+  const sumQty = data.reduce((a, r) => a + (Number(r.ordered_quantity) || 0), 0);
   const sumVal = data.reduce((a, r) => a + (Number(r.total_value) || 0), 0);
   const headers = ["", "SKU", "Product", "Brand", "Region", "PO", "Ordered", "Qty", "FOB", "Total value", "ETA", "Mode", "Remarks"];
   const aligns = ["", "", "", "", "", "c", "c", "c", "r", "r", "c", "", ""];
   if (showActions) { headers.push("Actions"); aligns.push("r"); }
   const restCols = showActions ? 4 : 3;
   const foot =
-    `<td colspan="8" class="ftot-label">Totals · ${data.length} line${data.length === 1 ? "" : "s"}</td>` +
-    `<td class="ftot">${sym}${money(sumFob)}</td>` +
+    `<td colspan="7" class="ftot-label">Totals · ${data.length} product${data.length === 1 ? "" : "s"}</td>` +
+    `<td class="ftot c">${fmt(sumQty)}</td>` +
+    `<td></td>` +
     `<td class="ftot">${sym}${money(sumVal)}</td>` +
     `<td colspan="${restCols}"></td>`;
   $("incTable").innerHTML = table(
@@ -472,9 +476,9 @@ async function loadUpload() {
   if (!upState.mappings.length) {
     const { data } = await sb.from("column_mappings").select("id,name,mapping").order("name");
     const maps = (data || []).slice();
-    // Make "Auto-detect" the first option so it's the default for every upload.
-    const ai = maps.findIndex((m) => /^auto-detect/i.test(m.name || ""));
-    if (ai > 0) maps.unshift(maps.splice(ai, 1)[0]);
+    // Show brand names first; keep the auto-detect/other option at the end.
+    const ai = maps.findIndex((m) => /auto-detect|^other/i.test(m.name || ""));
+    if (ai >= 0) maps.push(maps.splice(ai, 1)[0]);
     upState.mappings = maps;
     $("upMapping").innerHTML = upState.mappings.map((m, i) => `<option value="${i}">${esc(m.name)}</option>`).join("");
     $("upRead").addEventListener("click", readFile);
@@ -504,7 +508,7 @@ async function readFile() {
   prev.innerHTML = '<div class="empty"><span class="spin" style="border-color:#16233a40;border-top-color:#16233a"></span> Reading…</div>';
   try {
     const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
-    const { mapWorkbook } = await import("./mapping.js?v=19");
+    const { mapWorkbook } = await import("./mapping.js?v=20");
     const { rows, report } = mapWorkbook(wb, mapping, XLSX, f.name);
     upState.parsed = { fileName: f.name, rows };
     if (!rows.length) {
@@ -513,7 +517,7 @@ async function readFile() {
     }
     const per = Object.entries(report.perSheet).map(([s, n]) => `${esc(s)}: <b>${n}</b>`).join(" &nbsp;·&nbsp; ");
     const oos = rows.filter((r) => r.factory_status === "out_of_stock").length;
-    prev.innerHTML = `<div class="stat-row"><div class="s"><b>${rows.length}</b>rows ready</div><div class="s"><b>${esc(report.brand || "?")}</b>brand</div><div class="s"><b>${esc((report.regions || []).join(", ") || "?")}</b>regions</div></div><div class="note">From — ${per}</div><button class="btn full" id="upImport" style="margin-top:14px">Import ${rows.length} rows (replaces current ${esc(report.brand || "")} data)</button><div id="upResult"></div>`;
+    prev.innerHTML = `<div class="stat-row"><div class="s"><b>${rows.length}</b>rows ready</div><div class="s"><b>${esc(brandLabel(report.brand) || "?")}</b>brand</div><div class="s"><b>${esc((report.regions || []).join(", ") || "?")}</b>regions</div></div><div class="note">From — ${per}</div><button class="btn full" id="upImport" style="margin-top:14px">Import ${rows.length} rows (replaces current ${esc(brandLabel(report.brand) || "")} data)</button><div id="upResult"></div>`;
     $("upImport").addEventListener("click", doImport);
   } catch (e) { prev.innerHTML = banner("err", "Could not read this file: " + esc(e.message)); }
 }
